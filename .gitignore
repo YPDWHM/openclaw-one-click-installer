@@ -1,0 +1,6 @@
+installer-config.local.json
+installer-config.generated.json
+*.bak
+*.bak-*
+.DS_Store
+Thumbs.db

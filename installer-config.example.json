@@ -1,0 +1,43 @@
+{
+  "openclaw": {
+    "tag": "latest",
+    "installDaemon": true,
+    "startGateway": true,
+    "openDashboard": true
+  },
+  "workspace": {
+    "path": "%USERPROFILE%\\.openclaw\\workspace"
+  },
+  "model": {
+    "providerKind": "openai",
+    "modelRef": "openai/gpt-5.4",
+    "apiKey": "sk-replace-me",
+    "baseUrl": "",
+    "providerId": "customai",
+    "customModelId": "your-model-id",
+    "customModelName": "My Custom Model",
+    "customApi": "openai-completions",
+    "contextWindow": 131072,
+    "maxTokens": 8192,
+    "requiresStringContent": false,
+    "supportsTools": true
+  },
+  "channels": {
+    "feishu": {
+      "enabled": false,
+      "domain": "feishu",
+      "accountId": "main",
+      "accountName": "OpenClaw 助手",
+      "appId": "",
+      "appSecret": ""
+    },
+    "qqbot": {
+      "enabled": false,
+      "appId": "",
+      "clientSecret": ""
+    }
+  },
+  "skills": {
+    "slugs": []
+  }
+}
