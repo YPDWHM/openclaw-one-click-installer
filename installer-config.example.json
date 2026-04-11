@@ -8,6 +8,13 @@
   "workspace": {
     "path": "%USERPROFILE%\\.openclaw\\workspace"
   },
+  "gateway": {
+    "publicBaseUrl": "",
+    "writeSummaryFile": true,
+    "createHelperScripts": true,
+    "summaryPath": ".\\outputs\\openclaw-install-summary.txt",
+    "helperDir": ".\\launchers"
+  },
   "model": {
     "providerKind": "openai",
     "modelRef": "openai/gpt-5.4",
@@ -24,20 +31,84 @@
   },
   "channels": {
     "feishu": {
+      "selected": false,
       "enabled": false,
+      "installPlugin": false,
       "domain": "feishu",
       "accountId": "main",
-      "accountName": "OpenClaw 助手",
+      "accountName": "OpenClaw Assistant",
+      "connectionMode": "websocket",
+      "dmPolicy": "pairing",
+      "groupPolicy": "allowlist",
+      "requireMention": true,
       "appId": "",
-      "appSecret": ""
+      "appSecret": "",
+      "verificationToken": "",
+      "encryptKey": "",
+      "webhookPath": "/feishu/events",
+      "webhookHost": "127.0.0.1",
+      "webhookPort": 3000
     },
     "qqbot": {
+      "selected": false,
       "enabled": false,
+      "installPlugin": true,
       "appId": "",
-      "clientSecret": ""
+      "clientSecret": "",
+      "dmPolicy": "pairing"
+    },
+    "telegram": {
+      "selected": false,
+      "enabled": false,
+      "installPlugin": false,
+      "botToken": "",
+      "dmPolicy": "pairing",
+      "requireMention": true
+    },
+    "discord": {
+      "selected": false,
+      "enabled": false,
+      "installPlugin": false,
+      "token": "",
+      "dmPolicy": "pairing",
+      "groupPolicy": "allowlist"
+    },
+    "slack": {
+      "selected": false,
+      "enabled": false,
+      "installPlugin": false,
+      "mode": "socket",
+      "botToken": "",
+      "appToken": "",
+      "signingSecret": "",
+      "dmPolicy": "pairing",
+      "groupPolicy": "allowlist",
+      "webhookPath": "/slack/events"
+    },
+    "line": {
+      "selected": false,
+      "enabled": false,
+      "installPlugin": false,
+      "channelAccessToken": "",
+      "channelSecret": "",
+      "dmPolicy": "pairing",
+      "webhookPath": "/line/events"
+    },
+    "whatsapp": {
+      "selected": false,
+      "enabled": false,
+      "installPlugin": true,
+      "dmPolicy": "pairing",
+      "groupPolicy": "allowlist",
+      "runLoginAfterInstall": true
     }
   },
   "skills": {
-    "slugs": []
+    "presetSlugs": [
+      "files",
+      "calendar-planner"
+    ],
+    "customSlugs": [],
+    "saveGeneratedConfig": true
   }
 }

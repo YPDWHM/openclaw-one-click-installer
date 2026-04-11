@@ -1,27 +1,27 @@
-# OpenClaw Windows 傻瓜式安装包
+# OpenClaw Windows One-Click Installer
 
-这个目录是一套面向 Windows 新手的 OpenClaw 安装包装层。
+This repo packages a fuller Windows setup flow for OpenClaw beginners.
 
-它做的事情：
+What it covers:
 
-- 调官方 `install.ps1`，自动安装 Node.js 和 OpenClaw
-- 自动写入 `~/.openclaw/openclaw.json`
-- 自动写入 `~/.openclaw/.env`
-- 可选配置飞书 / QQ Bot
-- 可选批量安装 skills
-- 可选安装并启动 Gateway 服务
+- installs OpenClaw through the official Windows installer
+- writes `~/.openclaw/openclaw.json` and `~/.openclaw/.env`
+- asks for model URL / API key during install unless the user skips
+- lets the user choose channels such as Feishu, QQ Bot, Telegram, Discord, Slack, LINE, and WhatsApp
+- lets the user choose recommended skills and add custom skill slugs
+- preinstalls selected channel plugins when needed
+- generates helper `.bat` launchers and an install summary
+- includes a PDF usage manual
 
-最简单的用法：
+Quick start:
 
-1. 双击 `install-openclaw.bat`
-2. 跟着提示输入模型、Key、飞书或 QQ 信息
-3. 等脚本自动完成安装与启动
+1. Double-click `install-openclaw.bat`
+2. Follow the wizard
+3. Read `docs/OpenClaw-Windows-Installer-Guide.pdf`
 
-预设配置安装：
+Preset config mode:
 
-1. 复制 `installer-config.example.json`
-2. 重命名为 `installer-config.local.json`
-3. 把其中的 Key、URL、AppID、AppSecret 改成你自己的
-4. 双击 `install-openclaw.bat`
-
-详细说明见 `docs/Windows安装教学.md`。
+1. Copy `installer-config.example.json`
+2. Rename it to `installer-config.local.json`
+3. Fill in your provider, keys, URLs, channels, and skills
+4. Double-click `install-openclaw.bat`

@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>OpenClaw Windows 一键安装说明书</title>
+  <style>
+    :root {
+      --bg: #f5f1e8;
+      --ink: #1d1d1b;
+      --muted: #645d52;
+      --line: #d5c8b2;
+      --accent: #0e5a5a;
+      --accent-2: #9a3412;
+    }
+    @page { margin: 18mm 14mm; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.65 "Microsoft YaHei UI", "PingFang SC", sans-serif;
+    }
+    main { max-width: 980px; margin: 0 auto; padding: 28px 34px 40px; }
+    h1, h2, h3 { margin: 0 0 10px; line-height: 1.2; }
+    h1 { font-size: 34px; letter-spacing: 0.02em; }
+    h2 { font-size: 22px; color: var(--accent); margin-top: 30px; }
+    h3 { font-size: 17px; color: var(--accent-2); margin-top: 20px; }
+    p, li { margin: 0 0 10px; }
+    .hero {
+      padding: 24px 26px;
+      border: 1px solid var(--line);
+      background: linear-gradient(135deg, #fff9ef, #efe5d2);
+      border-radius: 18px;
+      margin-bottom: 22px;
+    }
+    .muted { color: var(--muted); }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.62);
+      padding: 16px 18px;
+      margin: 14px 0;
+    }
+    code {
+      background: rgba(14,90,90,0.08);
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 0.95em;
+    }
+    pre {
+      white-space: pre-wrap;
+      background: #1a1f24;
+      color: #f7f7f7;
+      padding: 14px 16px;
+      border-radius: 12px;
+      overflow: hidden;
+      font: 13px/1.55 "Cascadia Code", Consolas, monospace;
+    }
+    ul, ol { padding-left: 22px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      background: rgba(255,255,255,0.64);
+    }
+    th, td {
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      padding: 10px 12px;
+    }
+    th { background: rgba(14,90,90,0.08); }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <h1>OpenClaw Windows 一键安装说明书</h1>
+      <p>适用对象：不会自己装 Node.js、不会配 URL / Key、希望把 OpenClaw 和常用渠道一次配好的 Windows 用户。</p>
+      <p class="muted">本安装包覆盖模型提供商、渠道配置、插件补装、skills 选择安装、安装摘要和辅助启动脚本。</p>
+    </section>
+
+    <h2>1. 这套安装包做了什么</h2>
+    <div class="card">
+      <ul>
+        <li>调用 OpenClaw 官方 Windows 安装脚本，自动处理 Node.js 和 OpenClaw CLI。</li>
+        <li>在安装过程中按步骤提示填写模型 API Key、Base URL、模型 ID。</li>
+        <li>可选配置 Feishu、QQ Bot、Telegram、Discord、Slack、LINE、WhatsApp。</li>
+        <li>只有在用户勾选了某个渠道后，才会继续询问该渠道需要的 token、secret、webhook 路径或回调 URL。</li>
+        <li>提供推荐 skills 选择安装，并支持手动输入额外 skill slug。</li>
+        <li>安装后生成摘要文件和几个常用的 `.bat` 辅助脚本。</li>
+      </ul>
+    </div>
+
+    <h2>2. 使用方法</h2>
+    <h3>方式 A：交互式</h3>
+    <ol>
+      <li>双击 <code>install-openclaw.bat</code>。</li>
+      <li>按向导选择模型来源。</li>
+      <li>填写 API Key、Base URL、模型 ID 等信息。</li>
+      <li>勾选要接入的渠道。</li>
+      <li>为已勾选渠道填写凭据；暂时不配的可以跳过。</li>
+      <li>勾选要安装的 skills。</li>
+    </ol>
+
+    <h3>方式 B：预设配置</h3>
+    <ol>
+      <li>复制 <code>installer-config.example.json</code>。</li>
+      <li>改名为 <code>installer-config.local.json</code>。</li>
+      <li>预先填好模型、渠道、skills。</li>
+      <li>双击 <code>install-openclaw.bat</code> 直接安装。</li>
+    </ol>
+
+    <h2>3. 模型配置</h2>
+    <table>
+      <thead>
+        <tr><th>模式</th><th>需要填写</th><th>说明</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>OpenAI</td><td><code>apiKey</code>, <code>modelRef</code></td><td>默认示例是 <code>openai/gpt-5.4</code>。</td></tr>
+        <tr><td>OpenRouter</td><td><code>apiKey</code>, <code>modelRef</code></td><td>默认示例是 <code>openrouter/auto</code>。</td></tr>
+        <tr><td>Moonshot</td><td><code>apiKey</code>, <code>modelRef</code></td><td>默认示例是 <code>moonshot/kimi-k2.5</code>。</td></tr>
+        <tr><td>自定义兼容 OpenAI</td><td><code>baseUrl</code>, <code>apiKey</code>, <code>providerId</code>, <code>customModelId</code></td><td>适用于中转站、自建兼容接口或本地推理网关。</td></tr>
+      </tbody>
+    </table>
+    <p>如果你的后端报 <code>content must be string</code>，把 <code>requiresStringContent</code> 改成 <code>true</code>。如果工具调用会出错，把 <code>supportsTools</code> 改成 <code>false</code>。</p>
+
+    <h2>4. 渠道和要填的凭据</h2>
+    <table>
+      <thead>
+        <tr><th>渠道</th><th>要填什么</th><th>备注</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Feishu / Lark</td><td>App ID、App Secret；Webhook 模式额外要 Verification Token、Encrypt Key</td><td>默认推荐 websocket，不需要公网回调地址。</td></tr>
+        <tr><td>QQ Bot</td><td>AppID、AppSecret</td><td>安装器会按需补装 <code>@openclaw/qqbot</code>。</td></tr>
+        <tr><td>Telegram</td><td>BotFather token</td><td>首次私聊通常需要 pairing。</td></tr>
+        <tr><td>Discord</td><td>Bot token</td><td>要去 Discord Developer Portal 开 bot 并启用 intents。</td></tr>
+        <tr><td>Slack</td><td>Socket 模式：bot token + app token；HTTP 模式：bot token + signing secret</td><td>HTTP 模式还要在 Slack 平台填回调 URL。</td></tr>
+        <tr><td>LINE</td><td>Channel access token、Channel secret</td><td>需要在 LINE Developers 里填写 webhook 回调地址。</td></tr>
+        <tr><td>WhatsApp</td><td>无固定 token；安装后走 QR 登录</td><td>安装器可直接拉起 <code>openclaw channels login --channel whatsapp</code>。</td></tr>
+      </tbody>
+    </table>
+
+    <h2>5. 渠道回调 URL 怎么看</h2>
+    <p>如果你选择了需要回调地址的模式，安装器会询问 <code>Public gateway base URL</code>。例如：</p>
+    <pre>https://bot.example.com</pre>
+    <p>随后安装摘要里会自动帮你拼出：</p>
+    <ul>
+      <li>Slack HTTP: <code>https://bot.example.com/slack/events</code></li>
+      <li>LINE: <code>https://bot.example.com/line/events</code></li>
+      <li>Feishu webhook: <code>https://bot.example.com/feishu/events</code></li>
+    </ul>
+
+    <h2>6. Skills 选择安装</h2>
+    <p>安装器内置了一组推荐 skill 选项，用户可以多选，也可以额外手输 slug。</p>
+    <table>
+      <thead>
+        <tr><th>Slug</th><th>作用</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>files</code></td><td>文件查找、整理和清理</td></tr>
+        <tr><td><code>calendar-planner</code></td><td>日程安排</td></tr>
+        <tr><td><code>pg</code></td><td>PostgreSQL 相关</td></tr>
+        <tr><td><code>open</code></td><td>快速打开文件和链接</td></tr>
+        <tr><td><code>docker-skill</code></td><td>Docker 操作</td></tr>
+        <tr><td><code>skill-shell</code></td><td>给第三方 skill 配安全 shell 能力</td></tr>
+        <tr><td><code>find-skills-for-clawhub</code></td><td>辅助查找 ClawHub 上的 skill</td></tr>
+        <tr><td><code>openclaw-master-skills</code></td><td>大而全的技能包，谨慎安装</td></tr>
+      </tbody>
+    </table>
+
+    <h2>7. 安装完成后会生成什么</h2>
+    <div class="card">
+      <ul>
+        <li><code>~/.openclaw/openclaw.json</code></li>
+        <li><code>~/.openclaw/.env</code></li>
+        <li>安装摘要：<code>outputs/openclaw-install-summary.txt</code></li>
+        <li>辅助脚本目录：<code>launchers/</code></li>
+      </ul>
+    </div>
+
+    <h2>8. 常见问题</h2>
+    <h3>双击没反应</h3>
+    <pre>powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\install-openclaw.ps1</pre>
+
+    <h3>安装完找不到 openclaw</h3>
+    <p>关掉当前终端，重新开 PowerShell，再试：</p>
+    <pre>openclaw --version</pre>
+
+    <h3>Slack / LINE / Feishu webhook 没有收到事件</h3>
+    <ul>
+      <li>先确认公网回调 URL 可访问。</li>
+      <li>确认平台控制台里填的路径和安装摘要里生成的一致。</li>
+      <li>再看 <code>openclaw gateway status</code> 和 <code>openclaw logs --follow</code>。</li>
+    </ul>
+
+    <h3>WhatsApp 一直没连上</h3>
+    <p>重新执行：</p>
+    <pre>openclaw channels login --channel whatsapp</pre>
+
+    <h2>9. 安全建议</h2>
+    <p>不要把 <code>.env</code>、API Key、AppSecret、bot token 上传到公开仓库。打包发给别人时，仓库里只放示例配置，不放真实密钥。</p>
+
+    <h2>10. 截至 2026-04-11 的官方依据</h2>
+    <ul>
+      <li>OpenClaw 官方 Windows 安装入口：<code>install.ps1</code></li>
+      <li>内置或打包渠道包含 Discord、Telegram、Slack、Feishu、LINE、QQ Bot、WhatsApp 等</li>
+      <li><code>openclaw skills install &lt;slug&gt;</code> 用于从 ClawHub 安装 skill</li>
+    </ul>
+  </main>
+</body>
+</html>
