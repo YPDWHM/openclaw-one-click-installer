@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$ConfigPath = "",
     [switch]$NonInteractive,
@@ -169,6 +169,35 @@ function Read-SecretText([string]$Prompt) {
     }
 }
 
+function Test-ApiKeyConnectivity([string]$ProviderKind, [string]$ApiKey, [string]$BaseUrl) {
+    if ($DryRun) { Write-DryRun "Test API key connectivity"; return }
+    if ([string]::IsNullOrWhiteSpace($ApiKey)) { return }
+    $testUrl = switch ($ProviderKind.ToLowerInvariant()) {
+        "openai"     { "https://api.openai.com/v1/models" }
+        "openrouter" { "https://openrouter.ai/api/v1/models" }
+        "moonshot"   { "https://api.moonshot.cn/v1/models" }
+        "custom"     { if ([string]::IsNullOrWhiteSpace($BaseUrl)) { return } else { $BaseUrl.TrimEnd("/") + "/models" } }
+        default      { return }
+    }
+    Write-Host "  正在验证 API Key (testing connectivity)..." -ForegroundColor Gray
+    try {
+        $headers = @{ "Authorization" = "Bearer $ApiKey" }
+        $response = Invoke-WebRequest -UseBasicParsing -Uri $testUrl -Headers $headers -TimeoutSec 10
+        if ($response.StatusCode -eq 200) {
+            Write-Host "  [OK] API Key 验证成功 (API Key verified)" -ForegroundColor Green
+        }
+    } catch {
+        $status = $null
+        if ($_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
+        if ($status -eq 401 -or $status -eq 403) {
+            Write-WarnLine "API Key 被拒绝 (rejected) — 请检查 Key 是否正确"
+        } else {
+            Write-WarnLine "连接测试失败 (connection test failed): $($_.Exception.Message)"
+        }
+        Write-Host "  你仍然可以继续安装，稍后再修正 (you can still continue)" -ForegroundColor Gray
+    }
+}
+
 function Prompt-Default([string]$Prompt, [string]$DefaultValue = "") {
     if ([string]::IsNullOrEmpty($DefaultValue)) { return (Read-Host $Prompt).Trim() }
     $value = Read-Host "$Prompt [$DefaultValue]"
@@ -239,8 +268,17 @@ function Prompt-MultiSelect([string]$Title, [array]$Options) {
 }
 
 function Prompt-Policy([string]$Title, [string[]]$Values, [string]$DefaultValue) {
+    $descriptions = @{
+        "pairing"   = "配对模式 — 用户需输入配对码才能使用 (pairing code required)"
+        "allowlist" = "白名单 — 仅允许白名单中的用户 (allowlist only)"
+        "open"      = "开放 — 所有人可直接使用 (open to everyone)"
+        "disabled"  = "关闭 — 不启用此功能 (disabled)"
+    }
     $options = @()
-    foreach ($value in $Values) { $options += [ordered]@{ id = $value; label = $value; summary = "Use $value policy." } }
+    foreach ($value in $Values) {
+        $summary = if ($descriptions.ContainsKey($value)) { $descriptions[$value] } else { $value }
+        $options += [ordered]@{ id = $value; label = $value; summary = $summary }
+    }
     return Prompt-Choice -Title $Title -Options $options -DefaultId $DefaultValue
 }
 
@@ -297,125 +335,149 @@ function Normalize-InstallerConfig([hashtable]$InputConfig) {
 
 function Configure-FeishuChannel([hashtable]$Config) {
     $channel = $Config.channels.feishu; $channel.selected = $true
-    if (-not (Prompt-YesNo "Configure Feishu credentials now?" $true)) { $channel.enabled = $false; return }
+    Write-Host ""
+    Write-Host "  飞书凭据获取: 前往飞书开放平台 (open.feishu.cn) -> 创建应用 -> 凭证与基本信息" -ForegroundColor Gray
+    if (-not (Prompt-YesNo "现在配置飞书凭据 (Configure Feishu)?" $true)) { $channel.enabled = $false; return }
     $channel.enabled = $true
-    $channel.domain = Prompt-Default "Feishu domain (feishu or lark)" $channel.domain
-    $channel.accountId = Prompt-Default "Feishu account id" $channel.accountId
-    $channel.accountName = Prompt-Default "Feishu bot display name" $channel.accountName
-    $channel.appId = Prompt-Default "Feishu App ID" "cli_xxx"
-    $channel.appSecret = Read-SecretText "Feishu App Secret"
-    $channel.connectionMode = Prompt-Choice -Title "Feishu connection mode" -Options @(
-        [ordered]@{ id = "websocket"; label = "websocket"; summary = "Recommended. No public webhook needed." },
-        [ordered]@{ id = "webhook"; label = "webhook"; summary = "Need verification token and encrypt key." }
+    $channel.domain = Prompt-Default "飞书域名 (feishu 或 lark)" $channel.domain
+    $channel.accountId = Prompt-Default "飞书账号 ID (account id)" $channel.accountId
+    $channel.accountName = Prompt-Default "机器人显示名称 (bot display name)" $channel.accountName
+    $channel.appId = Prompt-Default "飞书 App ID" "cli_xxx"
+    $channel.appSecret = Read-SecretText "飞书 App Secret"
+    $channel.connectionMode = Prompt-Choice -Title "飞书连接模式 (connection mode)" -Options @(
+        [ordered]@{ id = "websocket"; label = "websocket"; summary = "推荐，无需公网回调地址 (no public webhook needed)" },
+        [ordered]@{ id = "webhook"; label = "webhook"; summary = "需要 verification token 和 encrypt key" }
     ) -DefaultId $channel.connectionMode
-    $channel.dmPolicy = Prompt-Policy "Feishu DM policy" @("pairing", "allowlist", "open", "disabled") $channel.dmPolicy
-    $channel.groupPolicy = Prompt-Policy "Feishu group policy" @("allowlist", "open", "disabled") $channel.groupPolicy
-    $channel.requireMention = Prompt-YesNo "Require @mention in Feishu groups?" $channel.requireMention
+    $channel.dmPolicy = Prompt-Policy "飞书私聊策略 (Feishu DM policy)" @("pairing", "allowlist", "open", "disabled") $channel.dmPolicy
+    $channel.groupPolicy = Prompt-Policy "飞书群聊策略 (Feishu group policy)" @("allowlist", "open", "disabled") $channel.groupPolicy
+    $channel.requireMention = Prompt-YesNo "群聊中是否需要 @机器人 才回复 (Require @mention)?" $channel.requireMention
     if ($channel.connectionMode -eq "webhook") {
-        $channel.verificationToken = Read-SecretText "Feishu verification token"
-        $channel.encryptKey = Read-SecretText "Feishu encrypt key"
-        $channel.webhookPath = Prompt-Default "Feishu webhook path" $channel.webhookPath
-        $channel.webhookHost = Prompt-Default "Feishu webhook host" $channel.webhookHost
-        $channel.webhookPort = [int](Prompt-Default "Feishu webhook port" ([string]$channel.webhookPort))
+        $channel.verificationToken = Read-SecretText "飞书 Verification Token"
+        $channel.encryptKey = Read-SecretText "飞书 Encrypt Key"
+        $channel.webhookPath = Prompt-Default "飞书 Webhook 路径 (webhook path)" $channel.webhookPath
+        $channel.webhookHost = Prompt-Default "飞书 Webhook 主机 (webhook host)" $channel.webhookHost
+        $channel.webhookPort = [int](Prompt-Default "飞书 Webhook 端口 (webhook port)" ([string]$channel.webhookPort))
     }
 }
 
 function Configure-QqBotChannel([hashtable]$Config) {
     $channel = $Config.channels.qqbot; $channel.selected = $true
-    $channel.installPlugin = Prompt-YesNo "Install QQ Bot plugin now?" $channel.installPlugin
-    if (-not (Prompt-YesNo "Configure QQ Bot now?" $true)) { $channel.enabled = $false; return }
+    Write-Host ""
+    Write-Host "  QQ Bot 凭据获取: 前往 QQ 开放平台 (q.qq.com) -> 应用管理 -> 开发设置" -ForegroundColor Gray
+    $channel.installPlugin = Prompt-YesNo "现在安装 QQ Bot 插件 (Install plugin)?" $channel.installPlugin
+    if (-not (Prompt-YesNo "现在配置 QQ Bot?" $true)) { $channel.enabled = $false; return }
     $channel.enabled = $true
     $channel.appId = Prompt-Default "QQ Bot AppID" ""
     $channel.clientSecret = Read-SecretText "QQ Bot AppSecret"
-    $channel.dmPolicy = Prompt-Policy "QQ Bot DM policy" @("pairing", "allowlist", "open", "disabled") $channel.dmPolicy
+    $channel.dmPolicy = Prompt-Policy "QQ Bot 私聊策略 (DM policy)" @("pairing", "allowlist", "open", "disabled") $channel.dmPolicy
 }
 
 function Configure-TelegramChannel([hashtable]$Config) {
     $channel = $Config.channels.telegram; $channel.selected = $true
-    if (-not (Prompt-YesNo "Configure Telegram now?" $true)) { $channel.enabled = $false; return }
+    Write-Host ""
+    Write-Host "  Telegram 凭据获取: 在 Telegram 中搜索 @BotFather -> 发送 /newbot -> 复制 token" -ForegroundColor Gray
+    if (-not (Prompt-YesNo "现在配置 Telegram?" $true)) { $channel.enabled = $false; return }
     $channel.enabled = $true
-    $channel.botToken = Read-SecretText "Telegram bot token"
-    $channel.dmPolicy = Prompt-Policy "Telegram DM policy" @("pairing", "allowlist", "open", "disabled") $channel.dmPolicy
-    $channel.requireMention = Prompt-YesNo "Require @mention in Telegram groups?" $channel.requireMention
+    $channel.botToken = Read-SecretText "Telegram Bot Token"
+    $channel.dmPolicy = Prompt-Policy "Telegram 私聊策略 (DM policy)" @("pairing", "allowlist", "open", "disabled") $channel.dmPolicy
+    $channel.requireMention = Prompt-YesNo "群聊中是否需要 @机器人 才回复 (Require @mention)?" $channel.requireMention
 }
 
 function Configure-DiscordChannel([hashtable]$Config) {
     $channel = $Config.channels.discord; $channel.selected = $true
-    if (-not (Prompt-YesNo "Configure Discord now?" $true)) { $channel.enabled = $false; return }
+    Write-Host ""
+    Write-Host "  Discord 凭据获取: 前往 discord.com/developers -> New Application -> Bot -> Reset Token" -ForegroundColor Gray
+    Write-Host "  注意: 需要在 Bot 页面开启 Message Content Intent" -ForegroundColor Yellow
+    if (-not (Prompt-YesNo "现在配置 Discord?" $true)) { $channel.enabled = $false; return }
     $channel.enabled = $true
-    $channel.token = Read-SecretText "Discord bot token"
-    $channel.dmPolicy = Prompt-Policy "Discord DM policy" @("pairing", "allowlist", "open", "disabled") $channel.dmPolicy
-    $channel.groupPolicy = Prompt-Policy "Discord group policy" @("allowlist", "open", "disabled") $channel.groupPolicy
+    $channel.token = Read-SecretText "Discord Bot Token"
+    $channel.dmPolicy = Prompt-Policy "Discord 私聊策略 (DM policy)" @("pairing", "allowlist", "open", "disabled") $channel.dmPolicy
+    $channel.groupPolicy = Prompt-Policy "Discord 服务器策略 (group policy)" @("allowlist", "open", "disabled") $channel.groupPolicy
 }
 
 function Configure-SlackChannel([hashtable]$Config) {
     $channel = $Config.channels.slack; $channel.selected = $true
-    if (-not (Prompt-YesNo "Configure Slack now?" $true)) { $channel.enabled = $false; return }
+    Write-Host ""
+    Write-Host "  Slack 凭据获取: 前往 api.slack.com/apps -> 创建应用 -> OAuth & Permissions" -ForegroundColor Gray
+    if (-not (Prompt-YesNo "现在配置 Slack?" $true)) { $channel.enabled = $false; return }
     $channel.enabled = $true
-    $channel.mode = Prompt-Choice -Title "Slack mode" -Options @(
-        [ordered]@{ id = "socket"; label = "socket"; summary = "Needs bot token + app token." },
-        [ordered]@{ id = "http"; label = "http"; summary = "Needs bot token + signing secret + callback URL." }
+    $channel.mode = Prompt-Choice -Title "Slack 连接模式 (mode)" -Options @(
+        [ordered]@{ id = "socket"; label = "socket"; summary = "需要 Bot Token + App Token，无需公网 (推荐)" },
+        [ordered]@{ id = "http"; label = "http"; summary = "需要 Bot Token + Signing Secret + 回调 URL" }
     ) -DefaultId $channel.mode
-    $channel.botToken = Read-SecretText "Slack bot token (xoxb-...)"
-    if ($channel.mode -eq "socket") { $channel.appToken = Read-SecretText "Slack app token (xapp-...)" }
+    $channel.botToken = Read-SecretText "Slack Bot Token (xoxb-...)"
+    if ($channel.mode -eq "socket") { $channel.appToken = Read-SecretText "Slack App Token (xapp-...)" }
     else {
-        $channel.signingSecret = Read-SecretText "Slack signing secret"
-        $channel.webhookPath = Prompt-Default "Slack webhook path" $channel.webhookPath
+        $channel.signingSecret = Read-SecretText "Slack Signing Secret"
+        $channel.webhookPath = Prompt-Default "Slack Webhook 路径 (webhook path)" $channel.webhookPath
     }
-    $channel.dmPolicy = Prompt-Policy "Slack DM policy" @("pairing", "allowlist", "open", "disabled") $channel.dmPolicy
-    $channel.groupPolicy = Prompt-Policy "Slack channel policy" @("allowlist", "open", "disabled") $channel.groupPolicy
+    $channel.dmPolicy = Prompt-Policy "Slack 私聊策略 (DM policy)" @("pairing", "allowlist", "open", "disabled") $channel.dmPolicy
+    $channel.groupPolicy = Prompt-Policy "Slack 频道策略 (channel policy)" @("allowlist", "open", "disabled") $channel.groupPolicy
 }
 
 function Configure-LineChannel([hashtable]$Config) {
     $channel = $Config.channels.line; $channel.selected = $true
-    if (-not (Prompt-YesNo "Configure LINE now?" $true)) { $channel.enabled = $false; return }
+    Write-Host ""
+    Write-Host "  LINE 凭据获取: 前往 developers.line.biz -> 创建 Messaging API Channel" -ForegroundColor Gray
+    Write-Host "  注意: LINE 必须使用 webhook 回调，需要公网 HTTPS 地址" -ForegroundColor Yellow
+    if (-not (Prompt-YesNo "现在配置 LINE?" $true)) { $channel.enabled = $false; return }
     $channel.enabled = $true
-    $channel.channelAccessToken = Read-SecretText "LINE channel access token"
-    $channel.channelSecret = Read-SecretText "LINE channel secret"
-    $channel.dmPolicy = Prompt-Policy "LINE DM policy" @("pairing", "allowlist", "open", "disabled") $channel.dmPolicy
-    $channel.webhookPath = Prompt-Default "LINE webhook path" $channel.webhookPath
+    $channel.channelAccessToken = Read-SecretText "LINE Channel Access Token"
+    $channel.channelSecret = Read-SecretText "LINE Channel Secret"
+    $channel.dmPolicy = Prompt-Policy "LINE 私聊策略 (DM policy)" @("pairing", "allowlist", "open", "disabled") $channel.dmPolicy
+    $channel.webhookPath = Prompt-Default "LINE Webhook 路径 (webhook path)" $channel.webhookPath
 }
 
 function Configure-WhatsAppChannel([hashtable]$Config) {
     $channel = $Config.channels.whatsapp; $channel.selected = $true
-    $channel.installPlugin = Prompt-YesNo "Install WhatsApp plugin now?" $channel.installPlugin
-    $channel.enabled = Prompt-YesNo "Enable WhatsApp config now?" $true
-    $channel.dmPolicy = Prompt-Policy "WhatsApp DM policy" @("pairing", "allowlist", "open", "disabled") $channel.dmPolicy
-    $channel.groupPolicy = Prompt-Policy "WhatsApp group policy" @("allowlist", "open", "disabled") $channel.groupPolicy
-    $channel.runLoginAfterInstall = Prompt-YesNo "Run WhatsApp QR login after install?" $channel.runLoginAfterInstall
+    Write-Host ""
+    Write-Host "  WhatsApp 无需预先获取 token，安装完成后扫码登录即可" -ForegroundColor Gray
+    $channel.installPlugin = Prompt-YesNo "现在安装 WhatsApp 插件 (Install plugin)?" $channel.installPlugin
+    $channel.enabled = Prompt-YesNo "启用 WhatsApp 配置 (Enable WhatsApp)?" $true
+    $channel.dmPolicy = Prompt-Policy "WhatsApp 私聊策略 (DM policy)" @("pairing", "allowlist", "open", "disabled") $channel.dmPolicy
+    $channel.groupPolicy = Prompt-Policy "WhatsApp 群聊策略 (group policy)" @("allowlist", "open", "disabled") $channel.groupPolicy
+    $channel.runLoginAfterInstall = Prompt-YesNo "安装后自动拉起 WhatsApp 扫码登录 (Run QR login)?" $channel.runLoginAfterInstall
 }
 
 function Collect-InteractiveConfig {
-    Write-Section "OpenClaw Windows Installer Wizard"
-    $providerKind = Prompt-Choice -Title "Choose a model provider" -Options @(
-        [ordered]@{ id = "openai"; label = "OpenAI"; summary = "Use OPENAI_API_KEY." },
-        [ordered]@{ id = "openrouter"; label = "OpenRouter"; summary = "Use OPENROUTER_API_KEY." },
-        [ordered]@{ id = "moonshot"; label = "Moonshot"; summary = "Use MOONSHOT_API_KEY." },
-        [ordered]@{ id = "custom"; label = "Custom OpenAI-compatible"; summary = "Use your own Base URL + API key." }
+    Write-Section "OpenClaw Windows 安装向导 (Installer Wizard)"
+    $providerKind = Prompt-Choice -Title "选择模型提供商 (Choose a model provider)" -Options @(
+        [ordered]@{ id = "openai"; label = "OpenAI"; summary = "使用 OPENAI_API_KEY — 从 platform.openai.com 获取" },
+        [ordered]@{ id = "openrouter"; label = "OpenRouter"; summary = "使用 OPENROUTER_API_KEY — 从 openrouter.ai/keys 获取" },
+        [ordered]@{ id = "moonshot"; label = "Moonshot"; summary = "使用 MOONSHOT_API_KEY — 从 platform.moonshot.cn 获取" },
+        [ordered]@{ id = "custom"; label = "自定义兼容 (Custom OpenAI-compatible)"; summary = "使用自定义 Base URL + API Key" }
     ) -DefaultId "openai"
     $config = Normalize-InstallerConfig -InputConfig @{ model = @{ providerKind = $providerKind } }
     $providerSpec = Get-ProviderSpec -ProviderKind $providerKind
-    $config.openclaw.tag = Prompt-Default "OpenClaw tag" $config.openclaw.tag
-    $config.workspace.path = Expand-PathLike (Prompt-Default "Workspace path" $config.workspace.path) $ScriptRoot
-    $config.openclaw.installDaemon = Prompt-YesNo "Install gateway service?" $config.openclaw.installDaemon
-    $config.openclaw.startGateway = Prompt-YesNo "Start gateway after config?" $config.openclaw.startGateway
-    $config.openclaw.openDashboard = Prompt-YesNo "Open dashboard after config?" $config.openclaw.openDashboard
+    $config.openclaw.tag = Prompt-Default "OpenClaw 版本标签 (tag)" $config.openclaw.tag
+    $config.workspace.path = Expand-PathLike (Prompt-Default "工作目录路径 (Workspace path)" $config.workspace.path) $ScriptRoot
+    $config.openclaw.installDaemon = Prompt-YesNo "安装网关服务 (Install gateway service)?" $config.openclaw.installDaemon
+    $config.openclaw.startGateway = Prompt-YesNo "配置完成后启动网关 (Start gateway)?" $config.openclaw.startGateway
+    $config.openclaw.openDashboard = Prompt-YesNo "配置完成后打开仪表盘 (Open dashboard)?" $config.openclaw.openDashboard
     if ($providerKind -eq "custom") {
-        $config.model.providerId = Prompt-Default "Custom provider id" $config.model.providerId
-        $config.model.baseUrl = Prompt-Default "Custom Base URL (must include /v1)" "https://your-api.example.com/v1"
-        $config.model.customModelId = Prompt-Default "Custom model id" $config.model.customModelId
-        $config.model.customModelName = Prompt-Default "Custom model display name" $config.model.customModelName
-        $config.model.customApi = Prompt-Default "Custom API type" $config.model.customApi
-        $config.model.contextWindow = [int](Prompt-Default "Context window tokens" ([string]$config.model.contextWindow))
-        $config.model.maxTokens = [int](Prompt-Default "Max output tokens" ([string]$config.model.maxTokens))
-        $config.model.requiresStringContent = Prompt-YesNo "Backend requires string-only content?" $config.model.requiresStringContent
-        $config.model.supportsTools = Prompt-YesNo "Backend supports tool calling?" $config.model.supportsTools
+        $config.model.providerId = Prompt-Default "自定义提供商 ID (provider id)" $config.model.providerId
+        $config.model.baseUrl = Prompt-Default "自定义 Base URL（须包含 /v1）" "https://your-api.example.com/v1"
+        $config.model.customModelId = Prompt-Default "自定义模型 ID (model id)" $config.model.customModelId
+        $config.model.customModelName = Prompt-Default "模型显示名称 (display name)" $config.model.customModelName
+        $config.model.customApi = Prompt-Default "API 类型 (API type)" $config.model.customApi
+        $config.model.contextWindow = [int](Prompt-Default "上下文窗口 tokens (Context window)" ([string]$config.model.contextWindow))
+        $config.model.maxTokens = [int](Prompt-Default "最大输出 tokens (Max output)" ([string]$config.model.maxTokens))
+        $config.model.requiresStringContent = Prompt-YesNo "后端是否要求纯字符串内容 (string-only content)?" $config.model.requiresStringContent
+        $config.model.supportsTools = Prompt-YesNo "后端是否支持工具调用 (tool calling)?" $config.model.supportsTools
         $config.model.modelRef = "{0}/{1}" -f $config.model.providerId, $config.model.customModelId
     } else {
-        $config.model.modelRef = Prompt-Default "Default model ref provider/model" $providerSpec.defaultModelRef
+        $config.model.modelRef = Prompt-Default "默认模型引用 (model ref) provider/model" $providerSpec.defaultModelRef
     }
-    $config.model.apiKey = Read-SecretText "Model API Key"
-    $selectedChannels = Prompt-MultiSelect -Title "Choose channels to configure" -Options $script:ChannelCatalog
+    $apiKeyHints = @{
+        "openai"     = "  提示: 前往 platform.openai.com -> API Keys 页面获取"
+        "openrouter" = "  提示: 前往 openrouter.ai/keys 获取"
+        "moonshot"   = "  提示: 前往 platform.moonshot.cn -> API 密钥管理获取"
+        "custom"     = "  提示: 从你的自定义提供商控制台获取 API Key"
+    }
+    if ($apiKeyHints.ContainsKey($providerKind)) { Write-Host $apiKeyHints[$providerKind] -ForegroundColor Gray }
+    $config.model.apiKey = Read-SecretText "模型 API Key（填写后将自动验证）"
+    Test-ApiKeyConnectivity -ProviderKind $providerKind -ApiKey $config.model.apiKey -BaseUrl ([string]$config.model.baseUrl)
+    $selectedChannels = Prompt-MultiSelect -Title "选择要配置的渠道 (Choose channels)" -Options $script:ChannelCatalog
     foreach ($channelId in $selectedChannels) {
         switch ($channelId) {
             "feishu" { Configure-FeishuChannel -Config $config }
@@ -431,16 +493,16 @@ function Collect-InteractiveConfig {
     if ($config.channels.feishu.enabled -and $config.channels.feishu.connectionMode -eq "webhook") { $needsPublicBaseUrl = $true }
     if ($config.channels.slack.enabled -and $config.channels.slack.mode -eq "http") { $needsPublicBaseUrl = $true }
     if ($config.channels.line.enabled) { $needsPublicBaseUrl = $true }
-    if ($needsPublicBaseUrl) { $config.gateway.publicBaseUrl = Prompt-Default "Public gateway base URL (https://...)" "" }
+    if ($needsPublicBaseUrl) { $config.gateway.publicBaseUrl = Prompt-Default "公网网关地址 (Public gateway base URL) https://..." "" }
     $config.skills.presetSlugs = @(
-        Prompt-MultiSelect -Title "Choose recommended skills to install" -Options ($script:SkillCatalog | ForEach-Object {
+        Prompt-MultiSelect -Title "选择要安装的推荐技能 (Choose recommended skills)" -Options ($script:SkillCatalog | ForEach-Object {
             [ordered]@{ id = $_.slug; label = $_.label; summary = $_.summary }
         })
     )
-    $config.skills.customSlugs = Split-CommaList (Prompt-Default "Custom skill slugs to install (comma separated, optional)" "")
-    $config.gateway.writeSummaryFile = Prompt-YesNo "Write install summary file?" $config.gateway.writeSummaryFile
-    $config.gateway.createHelperScripts = Prompt-YesNo "Create helper launcher .bat files?" $config.gateway.createHelperScripts
-    $config.skills.saveGeneratedConfig = Prompt-YesNo "Save installer-config.generated.json?" $config.skills.saveGeneratedConfig
+    $config.skills.customSlugs = Split-CommaList (Prompt-Default "额外技能 slug（逗号分隔，可选）(Custom skill slugs)" "")
+    $config.gateway.writeSummaryFile = Prompt-YesNo "生成安装摘要文件 (Write install summary)?" $config.gateway.writeSummaryFile
+    $config.gateway.createHelperScripts = Prompt-YesNo "生成辅助启动脚本 (Create helper .bat files)?" $config.gateway.createHelperScripts
+    $config.skills.saveGeneratedConfig = Prompt-YesNo "保存生成的配置文件 (Save generated config)?" $config.skills.saveGeneratedConfig
     return $config
 }
 
