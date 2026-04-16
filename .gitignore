@@ -4,3 +4,4 @@ installer-config.generated.json
 *.bak-*
 .DS_Store
 Thumbs.db
+.claude/
