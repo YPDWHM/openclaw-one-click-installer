@@ -2,7 +2,7 @@
 param()
 
 # ============================================================================
-# OpenClaw Windows 一键安装说明书 — PDF 生成脚本
+# OpenClaw Windows 一键安装与卸载说明书 — PDF 生成脚本
 # 需要 Python 3 和 reportlab：pip install reportlab
 # 字体使用 Windows 自带的 ARIALUNI.TTF（支持中文）
 # ============================================================================
@@ -72,10 +72,10 @@ def warn(t): E.append(Paragraph(t, sWarn))
 def muted(t): E.append(Paragraph(t, sMuted))
 
 # ===== Title =====
-E.append(Paragraph("OpenClaw Windows 一键安装说明书", sTitle))
+E.append(Paragraph("OpenClaw Windows 一键安装与卸载说明书", sTitle))
 E.append(sp())
 p("适用对象：不会自己装 Node.js、不会配 URL / Key、希望把 OpenClaw 和常用渠道一次配好的 Windows 用户。")
-muted("本安装包覆盖模型提供商、渠道配置、插件补装、skills 选择安装、安装摘要和辅助启动脚本。")
+muted("本安装包覆盖模型提供商、渠道配置、插件补装、skills 选择安装，并新增统一风格的一键卸载向导。")
 E.append(sp(12))
 
 # ===== 1 =====
@@ -87,6 +87,7 @@ p("- 可选配置 Feishu、QQ Bot、Telegram、Discord、Slack、LINE、WhatsApp
 p("- 只有在用户勾选了某个渠道后，才会继续询问该渠道需要的 token、secret、webhook 路径或回调 URL。")
 p("- 提供推荐 skills 选择安装，并支持手动输入额外 skill slug。")
 p("- 安装后生成摘要文件和几个常用的 .bat 辅助脚本。")
+p("- 新增 uninstall-openclaw.bat，一键卸载服务、状态目录、工作目录、CLI 和安装器产物。")
 E.append(sp())
 
 # ===== 2 =====
@@ -102,6 +103,11 @@ h2("方式 B：预设配置")
 p("1. 复制 installer-config.example.json，改名为 installer-config.local.json")
 p("2. 预先填好模型、渠道、skills")
 p("3. 双击 install-openclaw.bat 直接安装")
+h2("方式 C：交互式卸载")
+p("1. 双击 uninstall-openclaw.bat")
+p("2. 按向导选择是否先创建备份")
+p("3. 勾选要删除的内容：网关服务、~/.openclaw、工作目录、全局 CLI、安装器生成文件")
+p("4. 完成后查看 outputs/openclaw-uninstall-summary.txt")
 E.append(sp())
 # PART2_PLACEHOLDER
 
@@ -236,14 +242,26 @@ h1("7. 安装完成后会生成什么")
 p("- ~/.openclaw/openclaw.json — 主配置文件")
 p("- ~/.openclaw/.env — API Key 和密钥存储")
 p("- outputs/openclaw-install-summary.txt — 安装摘要（含回调 URL、状态汇总）")
-p("- launchers/*.bat — 辅助脚本（仪表盘、重启网关、查看日志等）")
+p("- outputs/openclaw-uninstall-summary.txt — 卸载摘要")
+p("- launchers/*.bat — 辅助脚本（仪表盘、重启网关、查看日志、卸载入口等）")
 E.append(sp())
 
 # ===== 8 =====
-h1("8. 常见问题")
+h1("8. 卸载时会做什么")
+p("- 可选先运行 openclaw backup create 创建备份。")
+p("- 优先调用 openclaw uninstall，按勾选内容卸载服务、状态目录和工作目录。")
+p("- 如果勾选删除 CLI，会继续执行 npm rm -g openclaw。")
+p("- 如果检测不到 openclaw.cmd，会退回到手动清理模式，删除当前安装器能确定的本地文件。")
+tip("如果当前工作目录不在 ~/.openclaw 下，卸载向导默认不会直接勾选删除，避免误删你自己的业务文件。")
+E.append(sp())
+
+# ===== 9 =====
+h1("9. 常见问题")
 h2("双击没反应")
 p("右键用 PowerShell 运行，或手动执行：")
 p("powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\\install-openclaw.ps1")
+h2("只想走卸载流程")
+p("执行 powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\\install-openclaw.ps1 -Uninstall")
 h2("安装完找不到 openclaw")
 p("关掉当前终端，重新开 PowerShell，再试 openclaw --version")
 h2("API Key 验证失败")
@@ -259,8 +277,8 @@ h2("WhatsApp 一直没连上")
 p("重新执行 openclaw channels login --channel whatsapp")
 E.append(sp())
 
-# ===== 9 =====
-h1("9. 安全建议")
+# ===== 10 =====
+h1("10. 安全建议")
 p("不要把 .env、API Key、AppSecret、bot token 上传到公开仓库。打包发给别人时，仓库里只放示例配置，不放真实密钥。")
 E.append(sp())
 

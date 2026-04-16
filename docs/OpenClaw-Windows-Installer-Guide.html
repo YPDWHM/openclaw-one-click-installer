@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OpenClaw Windows 一键安装说明书</title>
+  <title>OpenClaw Windows 一键安装与卸载说明书</title>
   <style>
     :root {
       --bg: #f5f1e8;
@@ -12,6 +12,7 @@
       --line: #d5c8b2;
       --accent: #0e5a5a;
       --accent-2: #9a3412;
+      --good: #22783c;
     }
     @page { margin: 18mm 14mm; }
     body {
@@ -26,21 +27,7 @@
     h2 { font-size: 22px; color: var(--accent); margin-top: 30px; }
     h3 { font-size: 17px; color: var(--accent-2); margin-top: 20px; }
     p, li { margin: 0 0 10px; }
-    .hero {
-      padding: 24px 26px;
-      border: 1px solid var(--line);
-      background: linear-gradient(135deg, #fff9ef, #efe5d2);
-      border-radius: 18px;
-      margin-bottom: 22px;
-    }
-    .muted { color: var(--muted); }
-    .card {
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: rgba(255,255,255,0.62);
-      padding: 16px 18px;
-      margin: 14px 0;
-    }
+    ul, ol { padding-left: 22px; }
     code {
       background: rgba(14,90,90,0.08);
       padding: 2px 6px;
@@ -57,7 +44,6 @@
       overflow: hidden;
       font: 13px/1.55 "Cascadia Code", Consolas, monospace;
     }
-    ul, ol { padding-left: 22px; }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -72,6 +58,21 @@
     }
     th { background: rgba(14,90,90,0.08); }
     a { color: var(--accent); }
+    .hero {
+      padding: 24px 26px;
+      border: 1px solid var(--line);
+      background: linear-gradient(135deg, #fff9ef, #efe5d2);
+      border-radius: 18px;
+      margin-bottom: 22px;
+    }
+    .muted { color: var(--muted); }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.62);
+      padding: 16px 18px;
+      margin: 14px 0;
+    }
     .tip-box {
       background: rgba(14,90,90,0.06);
       border-left: 4px solid var(--accent);
@@ -96,7 +97,6 @@
       margin: 12px 0;
     }
     .steps-box ol { margin: 0; }
-    /* 流程图样式 */
     .flow-diagram {
       display: flex;
       flex-wrap: wrap;
@@ -111,8 +111,8 @@
       flex-direction: column;
       align-items: center;
       text-align: center;
-      min-width: 110px;
-      max-width: 140px;
+      min-width: 118px;
+      max-width: 144px;
     }
     .flow-icon {
       width: 56px;
@@ -126,7 +126,7 @@
     }
     .flow-icon.blue { background: rgba(14,90,90,0.12); color: var(--accent); }
     .flow-icon.orange { background: rgba(154,52,18,0.10); color: var(--accent-2); }
-    .flow-icon.green { background: rgba(34,120,60,0.10); color: #22783c; }
+    .flow-icon.green { background: rgba(34,120,60,0.10); color: var(--good); }
     .flow-label { font-size: 12px; color: var(--muted); line-height: 1.3; }
     .flow-arrow {
       font-size: 22px;
@@ -135,7 +135,6 @@
       align-self: center;
       padding-bottom: 18px;
     }
-    /* 渠道卡片网格 */
     .channel-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
@@ -152,7 +151,6 @@
     .channel-card .ch-icon { font-size: 28px; margin-bottom: 4px; }
     .channel-card .ch-name { font-size: 13px; font-weight: 600; }
     .channel-card .ch-hint { font-size: 11px; color: var(--muted); margin-top: 2px; }
-    /* 生成文件卡片 */
     .output-grid {
       display: flex;
       gap: 18px;
@@ -161,7 +159,7 @@
     }
     .output-card {
       flex: 1;
-      min-width: 200px;
+      min-width: 180px;
       text-align: center;
       border: 1px solid var(--line);
       border-radius: 14px;
@@ -176,9 +174,9 @@
 <body>
   <main>
     <section class="hero">
-      <h1>OpenClaw Windows 一键安装说明书</h1>
-      <p>适用对象：不会自己装 Node.js、不会配 URL / Key、希望把 OpenClaw 和常用渠道一次配好的 Windows 用户。</p>
-      <p class="muted">本安装包覆盖模型提供商、渠道配置、插件补装、skills 选择安装、安装摘要和辅助启动脚本。</p>
+      <h1>OpenClaw Windows 一键安装与卸载说明书</h1>
+      <p>适用对象：不会自己装 Node.js、不会配 URL / Key、希望把 OpenClaw 和常用渠道一次配好，也希望后续能统一卸载干净的 Windows 用户。</p>
+      <p class="muted">本安装包覆盖模型提供商、渠道配置、插件补装、Skills 选择安装、安装摘要、辅助启动脚本，以及新增的统一风格卸载向导。</p>
     </section>
 
     <h2>1. 这套安装包做了什么</h2>
@@ -189,12 +187,12 @@
         <li>填写 API Key 后自动验证连通性，确认 Key 是否可用。</li>
         <li>可选配置 Feishu、QQ Bot、Telegram、Discord、Slack、LINE、WhatsApp。</li>
         <li>只有在用户勾选了某个渠道后，才会继续询问该渠道需要的 token、secret、webhook 路径或回调 URL。</li>
-        <li>提供推荐 skills 选择安装，并支持手动输入额外 skill slug。</li>
-        <li>安装后生成摘要文件和几个常用的 <code>.bat</code> 辅助脚本。</li>
+        <li>提供推荐 Skills 选择安装，并支持手动输入额外 skill slug。</li>
+        <li>安装后生成摘要文件和常用的 <code>.bat</code> 辅助脚本。</li>
+        <li>新增 <code>uninstall-openclaw.bat</code>，用于统一卸载服务、状态目录、工作目录、CLI 和安装器产物。</li>
       </ul>
     </div>
 
-    <!-- 安装流程示意图 -->
     <div class="flow-diagram">
       <div class="flow-step">
         <div class="flow-icon blue">
@@ -247,22 +245,30 @@
     </div>
 
     <h2>2. 使用方法</h2>
-    <h3>方式 A：交互式</h3>
+    <h3>方式 A：交互式安装</h3>
     <ol>
       <li>双击 <code>install-openclaw.bat</code>。</li>
       <li>按向导选择模型来源。</li>
-      <li>填写 API Key、Base URL、模型 ID 等信息（向导会提示去哪获取）。</li>
+      <li>填写 API Key、Base URL、模型 ID 等信息。</li>
       <li>勾选要接入的渠道。</li>
       <li>为已勾选渠道填写凭据；暂时不配的可以跳过。</li>
-      <li>勾选要安装的 skills。</li>
+      <li>勾选要安装的 Skills。</li>
     </ol>
 
-    <h3>方式 B：预设配置</h3>
+    <h3>方式 B：预设配置安装</h3>
     <ol>
       <li>复制 <code>installer-config.example.json</code>。</li>
       <li>改名为 <code>installer-config.local.json</code>。</li>
-      <li>预先填好模型、渠道、skills。</li>
+      <li>预先填好模型、渠道、Skills。</li>
       <li>双击 <code>install-openclaw.bat</code> 直接安装。</li>
+    </ol>
+
+    <h3>方式 C：交互式卸载</h3>
+    <ol>
+      <li>双击 <code>uninstall-openclaw.bat</code>。</li>
+      <li>按向导选择是否先创建备份。</li>
+      <li>勾选要删除的内容：网关服务、<code>~/.openclaw</code>、工作目录、全局 CLI、安装器生成文件。</li>
+      <li>完成后查看 <code>outputs/openclaw-uninstall-summary.txt</code>。</li>
     </ol>
 
     <h2>3. 模型配置与 API Key 获取</h2>
@@ -271,9 +277,9 @@
         <tr><th>模式</th><th>需要填写</th><th>说明</th></tr>
       </thead>
       <tbody>
-        <tr><td>OpenAI</td><td><code>apiKey</code>, <code>modelRef</code></td><td>默认示例是 <code>openai/gpt-5.4</code>。</td></tr>
-        <tr><td>OpenRouter</td><td><code>apiKey</code>, <code>modelRef</code></td><td>默认示例是 <code>openrouter/auto</code>。</td></tr>
-        <tr><td>Moonshot</td><td><code>apiKey</code>, <code>modelRef</code></td><td>默认示例是 <code>moonshot/kimi-k2.5</code>。</td></tr>
+        <tr><td>OpenAI</td><td><code>apiKey</code>, <code>modelRef</code></td><td>默认示例为 <code>openai/gpt-5.4</code>。</td></tr>
+        <tr><td>OpenRouter</td><td><code>apiKey</code>, <code>modelRef</code></td><td>默认示例为 <code>openrouter/auto</code>。</td></tr>
+        <tr><td>Moonshot</td><td><code>apiKey</code>, <code>modelRef</code></td><td>默认示例为 <code>moonshot/kimi-k2.5</code>。</td></tr>
         <tr><td>自定义兼容 OpenAI</td><td><code>baseUrl</code>, <code>apiKey</code>, <code>providerId</code>, <code>customModelId</code></td><td>适用于中转站、自建兼容接口或本地推理网关。</td></tr>
       </tbody>
     </table>
@@ -283,200 +289,82 @@
       <p><strong>OpenAI</strong></p>
       <ol>
         <li>打开 <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a></li>
-        <li>登录后点击 "Create new secret key"</li>
-        <li>复制生成的 <code>sk-...</code> 开头的密钥</li>
+        <li>登录后点击 “Create new secret key”</li>
+        <li>复制生成的 <code>sk-...</code> 密钥</li>
       </ol>
     </div>
     <div class="steps-box">
       <p><strong>OpenRouter</strong></p>
       <ol>
         <li>打开 <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a></li>
-        <li>登录后点击 "Create Key"</li>
+        <li>登录后创建 Key</li>
         <li>复制生成的密钥</li>
       </ol>
     </div>
     <div class="steps-box">
-      <p><strong>Moonshot (Kimi)</strong></p>
+      <p><strong>Moonshot</strong></p>
       <ol>
         <li>打开 <a href="https://platform.moonshot.cn/console/api-keys" target="_blank" rel="noopener">platform.moonshot.cn/console/api-keys</a></li>
-        <li>登录后点击 "新建 API Key"</li>
+        <li>登录后新建 API Key</li>
         <li>复制生成的密钥</li>
-      </ol>
-    </div>
-    <div class="steps-box">
-      <p><strong>自定义兼容提供商</strong></p>
-      <ol>
-        <li>从你的提供商控制台获取 API Key</li>
-        <li>确认 Base URL 格式，通常以 <code>/v1</code> 结尾</li>
-        <li>如果后端报 <code>content must be string</code>，把 <code>requiresStringContent</code> 改成 <code>true</code></li>
-        <li>如果工具调用会出错，把 <code>supportsTools</code> 改成 <code>false</code></li>
       </ol>
     </div>
     <div class="tip-box">安装向导填写 API Key 后会自动发送测试请求验证连通性。如果验证失败也可以继续安装，之后再修正。</div>
 
-
     <h2>4. 渠道凭据获取指南</h2>
-    <p>以下为每个渠道的凭据获取步骤。安装向导中也会在每个渠道配置前给出简要提示。</p>
-
-    <!-- 渠道总览卡片 -->
     <div class="channel-grid">
-      <div class="channel-card">
-        <div class="ch-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0e5a5a" stroke-width="1.5"><path d="M4 4h16v12H5.17L4 17.17V4z"/><path d="M8 9h8M8 12h5"/></svg>
-        </div>
-        <div class="ch-name">飞书 / Lark</div>
-        <div class="ch-hint">App ID + Secret</div>
-      </div>
-      <div class="channel-card">
-        <div class="ch-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0e5a5a" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 10a2 2 0 014 0M12 10a2 2 0 014 0M10 15c1 1 3 1 4 0"/></svg>
-        </div>
-        <div class="ch-name">QQ Bot</div>
-        <div class="ch-hint">AppID + AppSecret</div>
-      </div>
-      <div class="channel-card">
-        <div class="ch-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0e5a5a" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-        </div>
-        <div class="ch-name">Telegram</div>
-        <div class="ch-hint">BotFather Token</div>
-      </div>
-      <div class="channel-card">
-        <div class="ch-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0e5a5a" stroke-width="1.5"><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><path d="M7.5 7.5C9 6 11 5 12 5s3 1 4.5 2.5M7.5 16.5C9 18 11 19 12 19s3-1 4.5-2.5"/><rect x="3" y="3" width="18" height="18" rx="5"/></svg>
-        </div>
-        <div class="ch-name">Discord</div>
-        <div class="ch-hint">Bot Token</div>
-      </div>
-      <div class="channel-card">
-        <div class="ch-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0e5a5a" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 15l3-8 3 8M10 7l3 8"/></svg>
-        </div>
-        <div class="ch-name">Slack</div>
-        <div class="ch-hint">Socket / HTTP</div>
-      </div>
-      <div class="channel-card">
-        <div class="ch-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0e5a5a" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><circle cx="12" cy="10" r="2"/></svg>
-        </div>
-        <div class="ch-name">LINE</div>
-        <div class="ch-hint">Token + Secret</div>
-      </div>
-      <div class="channel-card">
-        <div class="ch-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0e5a5a" stroke-width="1.5"><path d="M3 21l1.65-3.8a9 9 0 113.4 2.9L3 21"/></svg>
-        </div>
-        <div class="ch-name">WhatsApp</div>
-        <div class="ch-hint">扫码登录</div>
-      </div>
+      <div class="channel-card"><div class="ch-icon">🪶</div><div class="ch-name">Feishu / Lark</div><div class="ch-hint">App ID + App Secret</div></div>
+      <div class="channel-card"><div class="ch-icon">🐧</div><div class="ch-name">QQ Bot</div><div class="ch-hint">AppID + AppSecret</div></div>
+      <div class="channel-card"><div class="ch-icon">✈️</div><div class="ch-name">Telegram</div><div class="ch-hint">Bot Token</div></div>
+      <div class="channel-card"><div class="ch-icon">🎮</div><div class="ch-name">Discord</div><div class="ch-hint">Bot Token</div></div>
+      <div class="channel-card"><div class="ch-icon">💬</div><div class="ch-name">Slack</div><div class="ch-hint">Bot Token + App Token</div></div>
+      <div class="channel-card"><div class="ch-icon">📗</div><div class="ch-name">LINE</div><div class="ch-hint">Access Token + Secret</div></div>
+      <div class="channel-card"><div class="ch-icon">🟢</div><div class="ch-name">WhatsApp</div><div class="ch-hint">安装后扫码</div></div>
     </div>
 
     <h3>4.1 飞书 / Lark</h3>
-    <div class="steps-box">
-      <ol>
-        <li>打开 <a href="https://open.feishu.cn/app" rel="noopener" target="_blank">open.feishu.cn/app</a>，登录后点击"创建企业自建应用"</li>
-        <li>进入应用详情页，在左侧菜单找到"凭证与基本信息"</li>
-        <li>复制 <code>App ID</code> 和 <code>App Secret</code></li>
-        <li>在左侧菜单"事件与回调"中，开启"使用长连接接收事件"（即 websocket 模式）</li>
-        <li>在"权限管理"中添加所需权限（至少需要接收消息和发送消息的权限）</li>
-      </ol>
-      <div class="tip-box">推荐使用 websocket 模式，不需要公网服务器。如果选择 webhook 模式，还需要在"事件与回调"页面获取 Verification Token 和 Encrypt Key。</div>
-    </div>
+    <p>打开 <a href="https://open.feishu.cn/app" target="_blank" rel="noopener">open.feishu.cn/app</a>，创建企业自建应用，在“凭证与基本信息”里复制 App ID 和 App Secret。</p>
+    <div class="tip-box">推荐 websocket 模式，不需要公网服务器。webhook 模式还需要 Verification Token 和 Encrypt Key。</div>
 
     <h3>4.2 QQ Bot</h3>
-    <div class="steps-box">
-      <ol>
-        <li>打开 <a href="https://q.qq.com/" rel="noopener" target="_blank">q.qq.com</a>，登录 QQ 开放平台</li>
-        <li>进入"应用管理"，创建一个机器人应用</li>
-        <li>在"开发设置"中找到并复制 <code>AppID</code> 和 <code>AppSecret</code></li>
-      </ol>
-      <div class="tip-box">安装器会自动补装 <code>@openclaw/qqbot</code> 插件。</div>
-    </div>
+    <p>打开 <a href="https://q.qq.com/" target="_blank" rel="noopener">q.qq.com</a>，创建机器人应用，在“开发设置”里复制 AppID 和 AppSecret。</p>
 
     <h3>4.3 Telegram</h3>
-    <div class="steps-box">
-      <ol>
-        <li>在 Telegram 中搜索 <code>@BotFather</code> 并打开对话</li>
-        <li>发送 <code>/newbot</code>，按提示输入机器人名称和用户名</li>
-        <li>创建成功后，BotFather 会返回一个 <code>Bot Token</code>，格式类似 <code>123456789:ABCdefGHI...</code></li>
-        <li>复制这个 token，在安装向导中填入</li>
-      </ol>
-      <div class="tip-box">首次私聊机器人通常需要 pairing（配对码验证）。可以在安装后通过 <code>openclaw pairing list</code> 查看配对码。</div>
-    </div>
+    <p>在 Telegram 中搜索 <code>@BotFather</code>，发送 <code>/newbot</code>，按提示创建机器人并复制 token。</p>
 
     <h3>4.4 Discord</h3>
-    <div class="steps-box">
-      <ol>
-        <li>打开 <a href="https://discord.com/developers/applications" rel="noopener" target="_blank">discord.com/developers/applications</a>，登录后点击 "New Application"</li>
-        <li>进入应用后，在左侧菜单点击 "Bot"</li>
-        <li>点击 "Reset Token" 生成新的 Bot Token 并复制</li>
-        <li>在同一页面下方，开启 <strong>Message Content Intent</strong>（必须，否则机器人收不到消息内容）</li>
-        <li>在左侧 "OAuth2 > URL Generator" 中，勾选 <code>bot</code> scope 和所需权限，生成邀请链接将 bot 添加到你的服务器</li>
-      </ol>
-      <div class="warn-box">必须开启 Message Content Intent，否则机器人无法读取消息内容。</div>
-    </div>
+    <p>打开 <a href="https://discord.com/developers/applications" target="_blank" rel="noopener">discord.com/developers/applications</a>，创建应用后进入 Bot 页面，重置并复制 Bot Token。</p>
+    <div class="warn-box">必须在 Bot 页面开启 Message Content Intent，否则机器人无法读取消息内容。</div>
 
     <h3>4.5 Slack</h3>
-    <div class="steps-box">
-      <ol>
-        <li>打开 <a href="https://api.slack.com/apps" rel="noopener" target="_blank">api.slack.com/apps</a>，点击 "Create New App" > "From scratch"</li>
-        <li>在 <strong>OAuth &amp; Permissions</strong> 中添加 Bot Token Scopes（至少 <code>chat:write</code>、<code>app_mentions:read</code>）</li>
-        <li>点击 "Install to Workspace"，授权后复制 <code>Bot User OAuth Token</code>（<code>xoxb-...</code>）</li>
-      </ol>
-      <p><strong>Socket 模式（推荐）：</strong></p>
-      <ol>
-        <li>在 <strong>Basic Information > App-Level Tokens</strong> 中创建 token（scope: <code>connections:write</code>）</li>
-        <li>复制 <code>xapp-...</code> 开头的 App Token</li>
-        <li>在左侧 <strong>Socket Mode</strong> 页面开启 Socket Mode</li>
-      </ol>
-      <p><strong>HTTP 模式：</strong></p>
-      <ol>
-        <li>在 <strong>Basic Information > App Credentials</strong> 中复制 Signing Secret</li>
-        <li>在 <strong>Event Subscriptions</strong> 中填写回调 URL（安装摘要中会生成）</li>
-      </ol>
-      <div class="tip-box">Socket 模式不需要公网服务器，适合本地开发和内网部署。</div>
-    </div>
+    <p>打开 <a href="https://api.slack.com/apps" target="_blank" rel="noopener">api.slack.com/apps</a> 创建应用。Socket 模式需要 <code>xoxb-...</code> 和 <code>xapp-...</code>；HTTP 模式需要 Signing Secret 和回调 URL。</p>
+    <div class="tip-box">Socket 模式不需要公网服务器，适合本地开发和内网部署。</div>
 
     <h3>4.6 LINE</h3>
-    <div class="steps-box">
-      <ol>
-        <li>打开 <a href="https://developers.line.biz/console/" rel="noopener" target="_blank">developers.line.biz/console</a>，登录后创建 Provider 和 Messaging API Channel</li>
-        <li>在 Channel 详情页的 <strong>Messaging API</strong> 标签下，点击 "Issue" 生成 <code>Channel Access Token</code></li>
-        <li>在 <strong>Basic settings</strong> 标签下复制 <code>Channel Secret</code></li>
-        <li>在 <strong>Messaging API</strong> 标签下的 Webhook URL 中填入安装摘要里生成的回调地址</li>
-      </ol>
-      <div class="warn-box">LINE 必须使用 webhook 回调，需要公网可访问的 HTTPS 地址。</div>
-    </div>
+    <p>打开 <a href="https://developers.line.biz/console/" target="_blank" rel="noopener">developers.line.biz/console/</a>，创建 Messaging API Channel，生成 Access Token 并复制 Channel Secret。</p>
+    <div class="warn-box">LINE 必须使用 webhook 回调，需要公网可访问的 HTTPS 地址。</div>
 
     <h3>4.7 WhatsApp</h3>
-    <div class="steps-box">
-      <ol>
-        <li>WhatsApp 渠道不需要预先获取 token</li>
-        <li>安装器会在安装完成后自动运行 <code>openclaw channels login --channel whatsapp</code></li>
-        <li>终端会显示一个二维码，用手机 WhatsApp 扫码即可完成登录</li>
-      </ol>
-      <div class="tip-box">如果扫码超时或断开，可以重新运行 <code>openclaw channels login --channel whatsapp</code>。</div>
-    </div>
+    <p>WhatsApp 渠道不需要预先获取 token。安装器会在安装完成后自动运行登录命令，终端显示二维码后，用手机 WhatsApp 扫码即可。</p>
 
     <h3>4.8 策略说明</h3>
-    <p>安装向导中每个渠道都会让你选择"私聊策略"和"群聊策略"，含义如下：</p>
     <table>
       <thead>
         <tr><th>策略</th><th>含义</th><th>适用场景</th></tr>
       </thead>
       <tbody>
-        <tr><td><code>pairing</code> 配对模式</td><td>用户首次使用时需要输入配对码才能与机器人对话</td><td>推荐用于私聊，防止陌生人随意使用</td></tr>
-        <tr><td><code>allowlist</code> 白名单</td><td>仅白名单中的用户或群组可以使用</td><td>适合企业内部或特定群组使用</td></tr>
-        <tr><td><code>open</code> 开放</td><td>所有人都可以直接使用，无需验证</td><td>适合公开服务或测试环境</td></tr>
-        <tr><td><code>disabled</code> 关闭</td><td>完全关闭该功能</td><td>不需要私聊或群聊功能时选择</td></tr>
+        <tr><td><code>pairing</code> 配对</td><td>用户需输入配对码才能对话</td><td>推荐私聊，防止陌生人使用</td></tr>
+        <tr><td><code>allowlist</code> 白名单</td><td>仅白名单中的用户可使用</td><td>企业内部或特定群组</td></tr>
+        <tr><td><code>open</code> 开放</td><td>所有人可直接使用</td><td>公开服务或测试环境</td></tr>
+        <tr><td><code>disabled</code> 关闭</td><td>完全关闭该功能</td><td>暂时不启用时选择</td></tr>
       </tbody>
     </table>
-    <div class="tip-box">大多数情况下，私聊策略选 <code>pairing</code>、群聊策略选 <code>allowlist</code> 是最安全的默认选择。安装后可以通过 <code>openclaw pairing list</code> 查看和管理配对码。</div>
+    <div class="tip-box">大多数情况下，私聊选 <code>pairing</code>、群聊选 <code>allowlist</code> 是最安全的默认选择。</div>
 
-    <h2>5. 渠道回调 URL 怎么看</h2>
-    <p>如果你选择了需要回调地址的模式（Slack HTTP、LINE、飞书 webhook），安装器会询问公网网关地址。例如：</p>
+    <h2>5. 渠道回调 URL</h2>
+    <p>如果选择了 Slack HTTP、LINE 或飞书 webhook 模式，安装器会询问公网网关地址，例如：</p>
     <pre>https://bot.example.com</pre>
-    <p>随后安装摘要里会自动帮你拼出：</p>
+    <p>安装摘要会自动拼出回调 URL：</p>
     <ul>
       <li>Slack HTTP: <code>https://bot.example.com/slack/events</code></li>
       <li>LINE: <code>https://bot.example.com/line/events</code></li>
@@ -484,7 +372,7 @@
     </ul>
 
     <h2>6. Skills 选择安装</h2>
-    <p>安装器内置了一组推荐 skill 选项，用户可以多选，也可以额外手输 slug。</p>
+    <p>安装器内置了一组推荐 skill 选项，也支持你额外手填 slug。</p>
     <table>
       <thead>
         <tr><th>Slug</th><th>作用</th></tr>
@@ -495,7 +383,7 @@
         <tr><td><code>pg</code></td><td>PostgreSQL 相关</td></tr>
         <tr><td><code>open</code></td><td>快速打开文件和链接</td></tr>
         <tr><td><code>docker-skill</code></td><td>Docker 操作</td></tr>
-        <tr><td><code>skill-shell</code></td><td>给第三方 skill 配安全 shell 能力</td></tr>
+        <tr><td><code>skill-shell</code></td><td>给第三方 skill 配安全 shell</td></tr>
         <tr><td><code>find-skills-for-clawhub</code></td><td>辅助查找 ClawHub 上的 skill</td></tr>
         <tr><td><code>openclaw-master-skills</code></td><td>大而全的技能包，谨慎安装</td></tr>
       </tbody>
@@ -519,24 +407,40 @@
       </div>
       <div class="output-card">
         <div class="out-icon">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#22783c" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--good)" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>
         </div>
-        <div class="out-name">安装摘要</div>
-        <div class="out-desc">outputs/<br>回调 URL、状态汇总</div>
+        <div class="out-name">安装 / 卸载摘要</div>
+        <div class="out-desc">outputs/<br>回调 URL、状态汇总、卸载记录</div>
       </div>
       <div class="output-card">
         <div class="out-icon">
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
         </div>
         <div class="out-name">辅助脚本</div>
-        <div class="out-desc">launchers/<br>仪表盘、重启、日志</div>
+        <div class="out-desc">launchers/<br>仪表盘、重启、日志、卸载入口</div>
       </div>
     </div>
 
-    <h2>8. 常见问题</h2>
+    <h2>8. 卸载时会做什么</h2>
+    <div class="card">
+      <ul>
+        <li>可选先运行 <code>openclaw backup create</code> 创建备份。</li>
+        <li>优先调用 <code>openclaw uninstall</code> 卸载网关服务、状态目录、工作目录。</li>
+        <li>如果你勾选删除 CLI，会继续执行 <code>npm rm -g openclaw</code>。</li>
+        <li>如果检测不到 <code>openclaw.cmd</code>，卸载器会退回手动清理模式。</li>
+        <li>安装器生成的 <code>launchers/</code>、<code>installer-config.generated.json</code>、安装摘要也可以一并清理。</li>
+      </ul>
+    </div>
+    <div class="tip-box">如果当前工作目录不在 <code>~/.openclaw</code> 下，卸载向导默认不会直接勾选删除，避免误删业务文件。</div>
+
+    <h2>9. 常见问题</h2>
     <h3>双击没反应</h3>
     <p>右键用 PowerShell 运行，或手动执行：</p>
     <pre>powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\install-openclaw.ps1</pre>
+
+    <h3>只想走卸载流程</h3>
+    <p>执行：</p>
+    <pre>powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\install-openclaw.ps1 -Uninstall</pre>
 
     <h3>安装完找不到 openclaw</h3>
     <p>关掉当前终端，重新开 PowerShell，再试：</p>
@@ -544,16 +448,16 @@
 
     <h3>API Key 验证失败</h3>
     <ul>
-      <li>检查 Key 是否复制完整（没有多余空格或截断）。</li>
-      <li>确认提供商账户有余额或有效的订阅。</li>
-      <li>如果是自定义提供商，确认 Base URL 格式正确（通常以 <code>/v1</code> 结尾）。</li>
-      <li>验证失败不影响安装，可以之后在 <code>~/.openclaw/.env</code> 中修改。</li>
+      <li>检查 Key 是否复制完整，没有多余空格或截断。</li>
+      <li>确认提供商账户有余额或有效订阅。</li>
+      <li>自定义提供商确认 Base URL 格式正确，通常以 <code>/v1</code> 结尾。</li>
+      <li>验证失败不影响安装，之后可以在 <code>~/.openclaw/.env</code> 中修改。</li>
     </ul>
 
     <h3>Slack / LINE / 飞书 webhook 没有收到事件</h3>
     <ul>
       <li>先确认公网回调 URL 可访问。</li>
-      <li>确认平台控制台里填的路径和安装摘要里生成的一致。</li>
+      <li>确认平台控制台里的路径和安装摘要里生成的一致。</li>
       <li>再看 <code>openclaw gateway status</code> 和 <code>openclaw logs --follow</code>。</li>
     </ul>
 
@@ -561,15 +465,14 @@
     <p>重新执行：</p>
     <pre>openclaw channels login --channel whatsapp</pre>
 
-    <h2>9. 安全建议</h2>
-    <p>不要把 <code>.env</code>、API Key、AppSecret、bot token 上传到公开仓库。打包发给别人时，仓库里只放示例配置，不放真实密钥。</p>
+    <h3>自定义工作目录会被自动删除吗</h3>
+    <p>交互式卸载里会单独确认；如果工作目录不在 <code>~/.openclaw</code> 下，默认不会直接勾选删除。</p>
 
-    <h2>10. 截至 2026-04-11 的官方依据</h2>
-    <ul>
-      <li>OpenClaw 官方 Windows 安装入口：<code>install.ps1</code></li>
-      <li>内置或打包渠道包含 Discord、Telegram、Slack、Feishu、LINE、QQ Bot、WhatsApp 等</li>
-      <li><code>openclaw skills install &lt;slug&gt;</code> 用于从 ClawHub 安装 skill</li>
-    </ul>
+    <h2>10. 安全建议</h2>
+    <p>不要把 <code>.env</code>、API Key、AppSecret、bot token 上传到公开仓库。打包发给别人时，仓库里只放示例配置，不放真实密钥。</p>
   </main>
 </body>
 </html>
+
+
+

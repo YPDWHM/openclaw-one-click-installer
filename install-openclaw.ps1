@@ -3,6 +3,7 @@ param(
     [string]$ConfigPath = "",
     [switch]$NonInteractive,
     [switch]$DryRun,
+    [switch]$Uninstall,
     [switch]$SkipOpenClawInstall,
     [switch]$SkipSkills,
     [switch]$NoPause
@@ -17,6 +18,10 @@ $OpenClawHome = Join-Path $HomeDir ".openclaw"
 $OpenClawConfigPath = Join-Path $OpenClawHome "openclaw.json"
 $OpenClawEnvPath = Join-Path $OpenClawHome ".env"
 $PowerShellExe = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+$GeneratedInstallerConfigPath = Join-Path $ScriptRoot "installer-config.generated.json"
+$DefaultInstallSummaryPath = Join-Path $ScriptRoot "outputs\openclaw-install-summary.txt"
+$DefaultUninstallSummaryPath = Join-Path $ScriptRoot "outputs\openclaw-uninstall-summary.txt"
+$DefaultHelperDir = Join-Path $ScriptRoot "launchers"
 
 $script:ChannelCatalog = @(
     [ordered]@{ id = "feishu"; label = "Feishu / Lark"; summary = "App ID + App Secret"; pluginPackage = ""; pluginMode = "bundled" },
@@ -135,6 +140,21 @@ function Backup-FileIfExists([string]$Path) {
 function Ensure-Directory([string]$Path) {
     if ($DryRun) { Write-DryRun "Create directory $Path"; return }
     New-Item -ItemType Directory -Path $Path -Force | Out-Null
+}
+
+function Remove-PathIfExists([string]$Path, [switch]$Recurse) {
+    if ([string]::IsNullOrWhiteSpace($Path)) { return }
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    if (-not (Test-Path -LiteralPath $fullPath)) { return }
+    $pathRoot = [System.IO.Path]::GetPathRoot($fullPath)
+    if ($fullPath -eq $pathRoot -or $fullPath -eq [System.IO.Path]::GetFullPath($HomeDir) -or $fullPath -eq [System.IO.Path]::GetFullPath($ScriptRoot)) {
+        throw "Refusing to remove protected path: $fullPath"
+    }
+    $item = Get-Item -LiteralPath $fullPath -Force
+    if ($DryRun) { Write-DryRun "Remove $fullPath"; return }
+    if ($item.PSIsContainer -or $Recurse) { Remove-Item -LiteralPath $fullPath -Recurse -Force }
+    else { Remove-Item -LiteralPath $fullPath -Force }
+    Write-Step "Removed: $fullPath"
 }
 
 function Expand-PathLike([string]$PathValue, [string]$BasePath) {
@@ -545,6 +565,22 @@ function Refresh-UserPath {
     $env:Path = (@($machinePath, $userPath) | Where-Object { $_ }) -join ";"
 }
 
+function Test-PathWithin([string]$CandidatePath, [string]$BasePath) {
+    if ([string]::IsNullOrWhiteSpace($CandidatePath) -or [string]::IsNullOrWhiteSpace($BasePath)) { return $false }
+    $candidateFull = [System.IO.Path]::GetFullPath($CandidatePath).TrimEnd("\")
+    $baseFull = [System.IO.Path]::GetFullPath($BasePath).TrimEnd("\")
+    if ($candidateFull.Equals($baseFull, [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+    return $candidateFull.StartsWith($baseFull + "\", [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+function Get-NpmCommandPath {
+    $cmd = Get-Command npm.cmd -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    $generic = Get-Command npm -ErrorAction SilentlyContinue
+    if ($generic) { return $generic.Source }
+    return $null
+}
+
 function Get-OpenClawCommandPath {
     $cmd = Get-Command openclaw.cmd -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
@@ -557,6 +593,237 @@ function Get-OpenClawCommandPath {
     $cmd = Get-Command openclaw.cmd -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
     return $null
+}
+
+function Get-ExistingWorkspacePath {
+    $defaultWorkspace = Join-Path $OpenClawHome "workspace"
+    $config = Load-JsonAsHashtable -Path $OpenClawConfigPath
+    if (-not ($config -is [hashtable]) -or -not $config.ContainsKey("agents")) { return $defaultWorkspace }
+    $agents = $config["agents"]
+    if (-not ($agents -is [hashtable]) -or -not $agents.ContainsKey("defaults")) { return $defaultWorkspace }
+    $defaults = $agents["defaults"]
+    if (-not ($defaults -is [hashtable]) -or -not $defaults.ContainsKey("workspace")) { return $defaultWorkspace }
+    $workspaceValue = [string]$defaults["workspace"]
+    if ([string]::IsNullOrWhiteSpace($workspaceValue)) { return $defaultWorkspace }
+    return $workspaceValue
+}
+
+function Get-UninstallState {
+    $workspacePath = Get-ExistingWorkspacePath
+    $openclawCommand = Get-OpenClawCommandPath
+    $hasArtifacts = (Test-Path -LiteralPath $DefaultHelperDir) -or (Test-Path -LiteralPath $GeneratedInstallerConfigPath) -or (Test-Path -LiteralPath $DefaultInstallSummaryPath)
+    return @{
+        openclawCommand = $openclawCommand
+        hasOpenClawCommand = -not [string]::IsNullOrWhiteSpace([string]$openclawCommand)
+        stateDir = $OpenClawHome
+        stateExists = Test-Path -LiteralPath $OpenClawHome
+        configExists = Test-Path -LiteralPath $OpenClawConfigPath
+        envExists = Test-Path -LiteralPath $OpenClawEnvPath
+        workspacePath = $workspacePath
+        workspaceExists = Test-Path -LiteralPath $workspacePath
+        helperDir = $DefaultHelperDir
+        generatedConfigPath = $GeneratedInstallerConfigPath
+        installSummaryPath = $DefaultInstallSummaryPath
+        uninstallSummaryPath = $DefaultUninstallSummaryPath
+        installArtifactsExist = $hasArtifacts
+    }
+}
+
+function Get-UninstallDefaults([hashtable]$State) {
+    $workspaceInsideState = Test-PathWithin -CandidatePath ([string]$State.workspacePath) -BasePath ([string]$State.stateDir)
+    return @{
+        backupBeforeRemove = $true
+        removeService = $State.hasOpenClawCommand -or $State.stateExists
+        removeState = $State.stateExists
+        removeWorkspace = $State.workspaceExists -and $workspaceInsideState
+        removeCli = $State.hasOpenClawCommand
+        removeInstallerArtifacts = $State.installArtifactsExist
+    }
+}
+
+function Collect-UninstallConfig {
+    Write-Section "OpenClaw Windows 卸载向导 (Uninstaller Wizard)"
+    $state = Get-UninstallState
+    $defaults = Get-UninstallDefaults -State $state
+
+    Write-Host "  已检测到的路径 (detected paths)" -ForegroundColor Gray
+    Write-Host "  - 状态目录: $($state.stateDir)" -ForegroundColor Gray
+    Write-Host "  - 工作目录: $($state.workspacePath)" -ForegroundColor Gray
+    Write-Host "  - 安装器辅助脚本目录: $($state.helperDir)" -ForegroundColor Gray
+    if ($state.hasOpenClawCommand) { Write-Host "  - OpenClaw CLI: $($state.openclawCommand)" -ForegroundColor Gray }
+    else { Write-Host "  - OpenClaw CLI: 未检测到，将使用手动清理兜底" -ForegroundColor Gray }
+    if ($state.workspaceExists -and -not (Test-PathWithin -CandidatePath ([string]$state.workspacePath) -BasePath ([string]$state.stateDir))) {
+        Write-Host "  注意: 当前工作目录不在 ~/.openclaw 下，默认不会自动删除" -ForegroundColor Yellow
+    }
+
+    $backupBeforeRemove = $false
+    if ($state.hasOpenClawCommand -and ($state.stateExists -or $state.workspaceExists)) {
+        $backupBeforeRemove = Prompt-YesNo "卸载前先创建备份 (Create backup before uninstall)?" $defaults.backupBeforeRemove
+    }
+
+    $removeService = Prompt-YesNo "卸载网关服务 (Remove gateway service)?" $defaults.removeService
+    $removeState = Prompt-YesNo "删除 OpenClaw 状态与配置目录 ~/.openclaw (Remove state/config)?" $defaults.removeState
+
+    $removeWorkspace = $false
+    if ($state.workspaceExists) {
+        $workspacePrompt = "删除工作目录 $($state.workspacePath) (Remove workspace)?"
+        $removeWorkspace = Prompt-YesNo $workspacePrompt $defaults.removeWorkspace
+    }
+
+    $removeCli = Prompt-YesNo "卸载 OpenClaw CLI（npm 全局安装）(Remove CLI)?" $defaults.removeCli
+    $removeInstallerArtifacts = Prompt-YesNo "删除当前安装包生成的摘要/辅助脚本/generated 配置 (Remove installer artifacts)?" $defaults.removeInstallerArtifacts
+
+    Write-Host ""
+    Write-Host "=== 卸载操作汇总 (Uninstall Summary) ===" -ForegroundColor Cyan
+    if ($backupBeforeRemove) { Write-Host "  [+] 卸载前创建备份" -ForegroundColor Green }
+    if ($removeService) { Write-Host "  [-] 卸载网关服务" -ForegroundColor Yellow }
+    if ($removeState) { Write-Host "  [-] 删除 $($state.stateDir)" -ForegroundColor Yellow }
+    if ($removeWorkspace) { Write-Host "  [-] 删除工作目录 $($state.workspacePath)" -ForegroundColor Yellow }
+    if ($removeCli) { Write-Host "  [-] 卸载 OpenClaw CLI" -ForegroundColor Yellow }
+    if ($removeInstallerArtifacts) { Write-Host "  [-] 清理安装器生成文件" -ForegroundColor Yellow }
+    if (-not $removeService -and -not $removeState -and -not $removeWorkspace -and -not $removeCli -and -not $removeInstallerArtifacts) {
+        Write-Host "  (未选择任何卸载操作)" -ForegroundColor Gray
+    }
+    Write-Host ""
+    if (-not (Prompt-YesNo "确认执行以上卸载操作 (Confirm uninstall)?" $true)) {
+        Write-Host "已取消卸载 (Uninstall cancelled)" -ForegroundColor Gray
+        exit 0
+    }
+
+    return @{
+        state = $state
+        backupBeforeRemove = $backupBeforeRemove
+        removeService = $removeService
+        removeState = $removeState
+        removeWorkspace = $removeWorkspace
+        removeCli = $removeCli
+        removeInstallerArtifacts = $removeInstallerArtifacts
+    }
+}
+
+function Get-NonInteractiveUninstallConfig {
+    $state = Get-UninstallState
+    $defaults = Get-UninstallDefaults -State $state
+    return @{
+        state = $state
+        backupBeforeRemove = $defaults.backupBeforeRemove
+        removeService = $defaults.removeService
+        removeState = $defaults.removeState
+        removeWorkspace = $defaults.removeWorkspace
+        removeCli = $defaults.removeCli
+        removeInstallerArtifacts = $defaults.removeInstallerArtifacts
+    }
+}
+
+function Invoke-OpenClawBuiltinUninstall([string]$OpenClawCommand, [hashtable]$Config) {
+    $arguments = @("uninstall")
+    if ($Config.removeService) { $arguments += "--service" }
+    if ($Config.removeState) { $arguments += "--state" }
+    if ($Config.removeWorkspace) { $arguments += "--workspace" }
+    if ($arguments.Count -eq 1) { return }
+    $arguments += @("--yes", "--non-interactive")
+    if ($DryRun) { $arguments += "--dry-run" }
+    Write-Section "运行 OpenClaw 卸载 (Run OpenClaw uninstaller)"
+    Invoke-ExternalCommand -FilePath $OpenClawCommand -Arguments $arguments -AllowFailure
+}
+
+function Remove-OpenClawGatewayTask {
+    Write-Section "移除网关服务 (Remove gateway service)"
+    try {
+        $tasks = @(Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -like "OpenClaw Gateway*" })
+    } catch {
+        Write-WarnLine "Unable to query Scheduled Tasks: $($_.Exception.Message)"
+        $tasks = @()
+    }
+    if ($tasks.Count -eq 0) {
+        Write-Step "未发现 OpenClaw 计划任务 (No scheduled task found)"
+    } else {
+        foreach ($task in $tasks) {
+            $taskDisplay = if ([string]::IsNullOrWhiteSpace([string]$task.TaskPath) -or $task.TaskPath -eq "\") { $task.TaskName } else { $task.TaskPath + $task.TaskName }
+            if ($DryRun) {
+                Write-DryRun "Unregister scheduled task $taskDisplay"
+            } else {
+                Unregister-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -Confirm:$false | Out-Null
+                Write-Step "Removed scheduled task: $taskDisplay"
+            }
+        }
+    }
+    Remove-PathIfExists -Path (Join-Path $OpenClawHome "gateway.cmd")
+}
+
+function Remove-InstallerArtifacts {
+    Write-Section "清理安装器生成文件 (Remove installer artifacts)"
+    Remove-PathIfExists -Path $GeneratedInstallerConfigPath
+    Remove-PathIfExists -Path $DefaultInstallSummaryPath
+    Remove-PathIfExists -Path $DefaultHelperDir -Recurse
+}
+
+function Uninstall-OpenClawCli {
+    Write-Section "卸载 OpenClaw CLI (Remove OpenClaw CLI)"
+    $npmCommand = Get-NpmCommandPath
+    if (-not $npmCommand) {
+        Write-WarnLine "未找到 npm，跳过 CLI 卸载 (npm not found, skip CLI removal)"
+        return
+    }
+    Invoke-ExternalCommand -FilePath $npmCommand -Arguments @("rm", "-g", "openclaw") -AllowFailure
+}
+
+function Write-UninstallSummary([hashtable]$Config) {
+    $state = $Config.state
+    $lines = @()
+    $lines += "OpenClaw Windows 卸载摘要"
+    $lines += "生成时间: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+    $lines += ""
+    $lines += "检测到的环境"
+    $lines += "- OpenClaw CLI: $(if ($state.hasOpenClawCommand) { $state.openclawCommand } else { '未找到' })"
+    $lines += "- 状态目录: $($state.stateDir)"
+    $lines += "- 工作目录: $($state.workspacePath)"
+    $lines += "- 辅助脚本目录: $($state.helperDir)"
+    $lines += ""
+    $lines += "执行的操作"
+    $lines += "- 卸载前创建备份: $($Config.backupBeforeRemove)"
+    $lines += "- 卸载网关服务: $($Config.removeService)"
+    $lines += "- 删除状态与配置: $($Config.removeState)"
+    $lines += "- 删除工作目录: $($Config.removeWorkspace)"
+    $lines += "- 卸载 CLI: $($Config.removeCli)"
+    $lines += "- 清理安装器生成文件: $($Config.removeInstallerArtifacts)"
+    Save-Utf8Text -Path $DefaultUninstallSummaryPath -Content (($lines -join [Environment]::NewLine) + [Environment]::NewLine)
+    Write-Step "Summary written: $DefaultUninstallSummaryPath"
+}
+
+function Invoke-UninstallFlow([hashtable]$Config) {
+    $state = $Config.state
+    $openclawCommand = if ($state.hasOpenClawCommand) { [string]$state.openclawCommand } else { $null }
+    $workspaceCoveredByStateRemoval = $Config.removeState -and (Test-PathWithin -CandidatePath ([string]$state.workspacePath) -BasePath ([string]$state.stateDir))
+
+    if ($Config.backupBeforeRemove) {
+        if ($openclawCommand) {
+            Write-Section "卸载前备份 (Backup before uninstall)"
+            Invoke-ExternalCommand -FilePath $openclawCommand -Arguments @("backup", "create") -AllowFailure
+        } else {
+            Write-WarnLine "未找到 OpenClaw CLI，跳过备份 (CLI not found, skip backup)"
+        }
+    }
+
+    if ($openclawCommand -and ($Config.removeService -or $Config.removeState -or $Config.removeWorkspace)) {
+        Invoke-OpenClawBuiltinUninstall -OpenClawCommand $openclawCommand -Config $Config
+    } elseif ($Config.removeService -or $Config.removeState -or $Config.removeWorkspace) {
+        Write-WarnLine "未找到 OpenClaw CLI，将使用手动清理 (Falling back to manual cleanup)"
+    }
+
+    if ($Config.removeService) { Remove-OpenClawGatewayTask }
+    if ($Config.removeState) {
+        Write-Section "删除状态与配置 (Remove state and config)"
+        Remove-PathIfExists -Path ([string]$state.stateDir) -Recurse
+    }
+    if ($Config.removeWorkspace -and -not $workspaceCoveredByStateRemoval) {
+        Write-Section "删除工作目录 (Remove workspace)"
+        Remove-PathIfExists -Path ([string]$state.workspacePath) -Recurse
+    }
+    if ($Config.removeCli) { Uninstall-OpenClawCli }
+    if ($Config.removeInstallerArtifacts) { Remove-InstallerArtifacts }
+
+    Write-UninstallSummary -Config $Config
 }
 
 function Install-OpenClawIfNeeded([hashtable]$Config) {
@@ -711,6 +978,7 @@ function Create-HelperScripts([hashtable]$Config) {
         "03-Gateway Status.bat" = "@echo off`r`ncmd /d /c openclaw.cmd gateway status`r`npause`r`n"
         "04-Follow Logs.bat" = "@echo off`r`ncmd /d /c openclaw.cmd logs --follow`r`n"
         "05-Pairing List.bat" = "@echo off`r`ncmd /d /c openclaw.cmd pairing list`r`npause`r`n"
+        "06-Uninstall OpenClaw.bat" = "@echo off`r`nsetlocal`r`nset ""ROOT_DIR=%~dp0..""`r`npowershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File ""%ROOT_DIR%\install-openclaw.ps1"" -Uninstall`r`n"
     }
     foreach ($name in $files.Keys) { Save-Utf8Text -Path (Join-Path $helperDir $name) -Content $files[$name] }
 }
@@ -778,32 +1046,42 @@ function Start-OpenClawGateway([string]$OpenClawCommand, [hashtable]$Config) {
 }
 
 try {
-    Write-Section "OpenClaw Windows Installer"
-    Write-Step "Script root: $ScriptRoot"
-    $config = if (-not [string]::IsNullOrWhiteSpace($ConfigPath)) { Normalize-InstallerConfig -InputConfig (Load-JsonAsHashtable -Path $ConfigPath) }
-    elseif ($NonInteractive) { throw "NonInteractive mode requires -ConfigPath." } else { Collect-InteractiveConfig }
-    Validate-InstallerConfig -Config $config
-    if (-not $NonInteractive -and $config.skills.saveGeneratedConfig) {
-        $generatedPath = Join-Path $ScriptRoot "installer-config.generated.json"
-        Save-JsonFile -Path $generatedPath -Data $config
-        Write-Step "Generated config saved: $generatedPath"
+    if ($Uninstall) {
+        Write-Section "OpenClaw Windows Uninstaller"
+        Write-Step "Script root: $ScriptRoot"
+        $uninstallConfig = if ($NonInteractive) { Get-NonInteractiveUninstallConfig } else { Collect-UninstallConfig }
+        Invoke-UninstallFlow -Config $uninstallConfig
+        Write-Section "Done"
+        Write-Host "OpenClaw uninstall flow completed." -ForegroundColor Green
+        Write-Host "Check the generated uninstall summary before handing the package to others."
+    } else {
+        Write-Section "OpenClaw Windows Installer"
+        Write-Step "Script root: $ScriptRoot"
+        $config = if (-not [string]::IsNullOrWhiteSpace($ConfigPath)) { Normalize-InstallerConfig -InputConfig (Load-JsonAsHashtable -Path $ConfigPath) }
+        elseif ($NonInteractive) { throw "NonInteractive mode requires -ConfigPath." } else { Collect-InteractiveConfig }
+        Validate-InstallerConfig -Config $config
+        if (-not $NonInteractive -and $config.skills.saveGeneratedConfig) {
+            Save-JsonFile -Path $GeneratedInstallerConfigPath -Data $config
+            Write-Step "Generated config saved: $GeneratedInstallerConfigPath"
+        }
+        Install-OpenClawIfNeeded -Config $config
+        $openclawCommand = Get-OpenClawCommandPath
+        if (-not $openclawCommand) { throw "openclaw.cmd not found. Reopen PowerShell and try again." }
+        Configure-OpenClawFiles -Config $config
+        Install-SelectedPlugins -OpenClawCommand $openclawCommand -Config $config
+        Install-Skills -OpenClawCommand $openclawCommand -Config $config
+        Create-HelperScripts -Config $config
+        Write-InstallSummary -Config $config
+        Run-PostInstallChannelLogins -OpenClawCommand $openclawCommand -Config $config
+        Start-OpenClawGateway -OpenClawCommand $openclawCommand -Config $config
+        Write-Section "Done"
+        Write-Host "OpenClaw install flow completed." -ForegroundColor Green
+        Write-Host "Check the generated summary and PDF manual before handing the package to others."
     }
-    Install-OpenClawIfNeeded -Config $config
-    $openclawCommand = Get-OpenClawCommandPath
-    if (-not $openclawCommand) { throw "openclaw.cmd not found. Reopen PowerShell and try again." }
-    Configure-OpenClawFiles -Config $config
-    Install-SelectedPlugins -OpenClawCommand $openclawCommand -Config $config
-    Install-Skills -OpenClawCommand $openclawCommand -Config $config
-    Create-HelperScripts -Config $config
-    Write-InstallSummary -Config $config
-    Run-PostInstallChannelLogins -OpenClawCommand $openclawCommand -Config $config
-    Start-OpenClawGateway -OpenClawCommand $openclawCommand -Config $config
-    Write-Section "Done"
-    Write-Host "OpenClaw install flow completed." -ForegroundColor Green
-    Write-Host "Check the generated summary and PDF manual before handing the package to others."
 } catch {
     Write-Host ""
-    Write-Host "Install failed: " -ForegroundColor Red -NoNewline
+    $actionLabel = if ($Uninstall) { "Uninstall" } else { "Install" }
+    Write-Host "$actionLabel failed: " -ForegroundColor Red -NoNewline
     Write-Host $_.Exception.Message -ForegroundColor Red
     exit 1
 } finally {
