@@ -182,6 +182,7 @@
     <h2>1. 这套安装包做了什么</h2>
     <div class="card">
       <ul>
+        <li>支持选择 npm 镜像源（淘宝镜像），国内用户安装速度大幅提升。</li>
         <li>调用 OpenClaw 官方 Windows 安装脚本，自动处理 Node.js 和 OpenClaw CLI。</li>
         <li>在安装过程中按步骤提示填写模型 API Key、Base URL、模型 ID。</li>
         <li>填写 API Key 后自动验证连通性，确认 Key 是否可用。</li>
@@ -274,15 +275,16 @@
     <h2>3. 模型配置与 API Key 获取</h2>
     <table>
       <thead>
-        <tr><th>模式</th><th>需要填写</th><th>说明</th></tr>
+        <tr><th>模式</th><th>需要填写</th><th>说明</th><th>网络要求</th></tr>
       </thead>
       <tbody>
-        <tr><td>OpenAI</td><td><code>apiKey</code>, <code>modelRef</code></td><td>默认示例为 <code>openai/gpt-5.4</code>。</td></tr>
-        <tr><td>OpenRouter</td><td><code>apiKey</code>, <code>modelRef</code></td><td>默认示例为 <code>openrouter/auto</code>。</td></tr>
-        <tr><td>Moonshot</td><td><code>apiKey</code>, <code>modelRef</code></td><td>默认示例为 <code>moonshot/kimi-k2.5</code>。</td></tr>
-        <tr><td>自定义兼容 OpenAI</td><td><code>baseUrl</code>, <code>apiKey</code>, <code>providerId</code>, <code>customModelId</code></td><td>适用于中转站、自建兼容接口或本地推理网关。</td></tr>
+        <tr><td>OpenAI</td><td><code>apiKey</code>, <code>modelRef</code></td><td>默认示例为 <code>openai/gpt-5.4</code>。</td><td>需要科学上网</td></tr>
+        <tr><td>OpenRouter</td><td><code>apiKey</code>, <code>modelRef</code></td><td>默认示例为 <code>openrouter/auto</code>。</td><td>需要科学上网</td></tr>
+        <tr><td>Moonshot</td><td><code>apiKey</code>, <code>modelRef</code></td><td>默认示例为 <code>moonshot/kimi-k2.5</code>。</td><td>国内直连，无需梯子</td></tr>
+        <tr><td>自定义兼容 OpenAI</td><td><code>baseUrl</code>, <code>apiKey</code>, <code>providerId</code>, <code>customModelId</code></td><td>适用于中转站、自建兼容接口或本地推理网关。</td><td>取决于提供商</td></tr>
       </tbody>
     </table>
+    <div class="warn-box">OpenAI 和 OpenRouter 的 API 服务器在海外，安装和使用过程中都需要科学上网（梯子/VPN）。如果你在国内且没有梯子，建议选择 Moonshot 或国内自定义提供商。</div>
 
     <h3>3.1 去哪获取 API Key</h3>
     <div class="steps-box">
@@ -389,7 +391,21 @@
       </tbody>
     </table>
 
-    <h2>7. 安装完成后会生成什么</h2>
+    <h2>7. npm 镜像源选择</h2>
+    <p>安装向导会询问你使用哪个 npm 镜像源。国内用户强烈建议选择淘宝镜像，安装速度可提升数倍。</p>
+    <table>
+      <thead>
+        <tr><th>选项</th><th>地址</th><th>适用场景</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>默认 (Default)</td><td><code>registry.npmjs.org</code></td><td>海外用户或已有科学上网</td></tr>
+        <tr><td>淘宝镜像 (China mirror)</td><td><code>registry.npmmirror.com</code></td><td>国内用户，无需梯子即可加速</td></tr>
+      </tbody>
+    </table>
+    <div class="tip-box">安装器会在安装前自动设置 npm registry，安装完成后恢复你原来的源设置，不会影响你其他项目。</div>
+    <div class="tip-box">预设配置安装时，在 <code>installer-config.local.json</code> 的 <code>openclaw.npmMirror</code> 字段填入 <code>https://registry.npmmirror.com</code> 即可。留空则使用默认源。</div>
+
+    <h2>8. 安装完成后会生成什么</h2>
     <div class="output-grid">
       <div class="output-card">
         <div class="out-icon">
@@ -421,7 +437,7 @@
       </div>
     </div>
 
-    <h2>8. 卸载时会做什么</h2>
+    <h2>9. 卸载时会做什么</h2>
     <div class="card">
       <ul>
         <li>可选先运行 <code>openclaw backup create</code> 创建备份。</li>
@@ -433,7 +449,7 @@
     </div>
     <div class="tip-box">如果当前工作目录不在 <code>~/.openclaw</code> 下，卸载向导默认不会直接勾选删除，避免误删业务文件。</div>
 
-    <h2>9. 常见问题</h2>
+    <h2>10. 常见问题</h2>
     <h3>双击没反应</h3>
     <p>右键用 PowerShell 运行，或手动执行：</p>
     <pre>powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\install-openclaw.ps1</pre>
@@ -468,7 +484,7 @@
     <h3>自定义工作目录会被自动删除吗</h3>
     <p>交互式卸载里会单独确认；如果工作目录不在 <code>~/.openclaw</code> 下，默认不会直接勾选删除。</p>
 
-    <h2>10. 安全建议</h2>
+    <h2>11. 安全建议</h2>
     <p>不要把 <code>.env</code>、API Key、AppSecret、bot token 上传到公开仓库。打包发给别人时，仓库里只放示例配置，不放真实密钥。</p>
   </main>
 </body>
