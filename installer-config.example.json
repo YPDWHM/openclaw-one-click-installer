@@ -3,7 +3,8 @@
     "tag": "latest",
     "installDaemon": true,
     "startGateway": true,
-    "openDashboard": true
+    "openDashboard": true,
+    "npmMirror": ""
   },
   "workspace": {
     "path": "%USERPROFILE%\\.openclaw\\workspace"

@@ -327,7 +327,7 @@ function Get-ChannelDefaults() {
 
 function Normalize-InstallerConfig([hashtable]$InputConfig) {
     $defaults = @{
-        openclaw = @{ tag = "latest"; installDaemon = $true; startGateway = $true; openDashboard = $true }
+        openclaw = @{ tag = "latest"; installDaemon = $true; startGateway = $true; openDashboard = $true; npmMirror = "" }
         workspace = @{ path = "%USERPROFILE%\.openclaw\workspace" }
         gateway = @{
             publicBaseUrl = ""; writeSummaryFile = $true; createHelperScripts = $true
@@ -462,11 +462,17 @@ function Configure-WhatsAppChannel([hashtable]$Config) {
 function Collect-InteractiveConfig {
     Write-Section "OpenClaw Windows 安装向导 (Installer Wizard)"
     $providerKind = Prompt-Choice -Title "选择模型提供商 (Choose a model provider)" -Options @(
-        [ordered]@{ id = "openai"; label = "OpenAI"; summary = "使用 OPENAI_API_KEY — 从 platform.openai.com 获取" },
-        [ordered]@{ id = "openrouter"; label = "OpenRouter"; summary = "使用 OPENROUTER_API_KEY — 从 openrouter.ai/keys 获取" },
-        [ordered]@{ id = "moonshot"; label = "Moonshot"; summary = "使用 MOONSHOT_API_KEY — 从 platform.moonshot.cn 获取" },
+        [ordered]@{ id = "openai"; label = "OpenAI"; summary = "使用 OPENAI_API_KEY — 需要科学上网" },
+        [ordered]@{ id = "openrouter"; label = "OpenRouter"; summary = "使用 OPENROUTER_API_KEY — 需要科学上网" },
+        [ordered]@{ id = "moonshot"; label = "Moonshot"; summary = "使用 MOONSHOT_API_KEY — 国内直连，无需梯子" },
         [ordered]@{ id = "custom"; label = "自定义兼容 (Custom OpenAI-compatible)"; summary = "使用自定义 Base URL + API Key" }
     ) -DefaultId "openai"
+    if ($providerKind -eq "openai" -or $providerKind -eq "openrouter") {
+        Write-Host ""
+        Write-Host "  注意: $providerKind 的 API 服务器在海外，安装和使用过程中都需要科学上网（梯子/VPN）。" -ForegroundColor Yellow
+        Write-Host "  如果你在国内且没有梯子，建议选择 Moonshot 或国内自定义提供商。" -ForegroundColor Yellow
+        Write-Host ""
+    }
     $config = Normalize-InstallerConfig -InputConfig @{ model = @{ providerKind = $providerKind } }
     $providerSpec = Get-ProviderSpec -ProviderKind $providerKind
     $config.openclaw.tag = Prompt-Default "OpenClaw 版本标签 (tag)" $config.openclaw.tag
@@ -474,6 +480,11 @@ function Collect-InteractiveConfig {
     $config.openclaw.installDaemon = Prompt-YesNo "安装网关服务 (Install gateway service)?" $config.openclaw.installDaemon
     $config.openclaw.startGateway = Prompt-YesNo "配置完成后启动网关 (Start gateway)?" $config.openclaw.startGateway
     $config.openclaw.openDashboard = Prompt-YesNo "配置完成后打开仪表盘 (Open dashboard)?" $config.openclaw.openDashboard
+    $npmMirrorChoice = Prompt-Choice -Title "npm 镜像源 (npm registry)" -Options @(
+        [ordered]@{ id = "default"; label = "默认 (Default)"; summary = "registry.npmjs.org — 海外源，需要良好网络" },
+        [ordered]@{ id = "taobao"; label = "淘宝镜像 (China mirror)"; summary = "registry.npmmirror.com — 国内加速，推荐国内用户" }
+    ) -DefaultId "default"
+    if ($npmMirrorChoice -eq "taobao") { $config.openclaw.npmMirror = "https://registry.npmmirror.com" }
     if ($providerKind -eq "custom") {
         $config.model.providerId = Prompt-Default "自定义提供商 ID (provider id)" $config.model.providerId
         $config.model.baseUrl = Prompt-Default "自定义 Base URL（须包含 /v1）" "https://your-api.example.com/v1"
@@ -826,6 +837,30 @@ function Invoke-UninstallFlow([hashtable]$Config) {
     Write-UninstallSummary -Config $Config
 }
 
+function Apply-NpmMirror([hashtable]$Config) {
+    $mirror = [string]$Config.openclaw.npmMirror
+    if ([string]::IsNullOrWhiteSpace($mirror)) { return }
+    Write-Section "设置 npm 镜像源 (Set npm registry)"
+    Write-Step "Registry: $mirror"
+    if ($DryRun) { Write-DryRun "npm config set registry $mirror"; return }
+    try {
+        $script:OriginalNpmRegistry = (& npm config get registry 2>$null)
+        if ($LASTEXITCODE -ne 0) { $script:OriginalNpmRegistry = "" }
+    } catch { $script:OriginalNpmRegistry = "" }
+    & npm config set registry $mirror
+    if ($LASTEXITCODE -ne 0) { Write-WarnLine "npm 镜像源设置失败，将使用默认源继续安装 (Failed to set npm registry, continuing with default)" }
+    else { Write-Step "npm 镜像源已设置 (npm registry configured)" }
+}
+
+function Restore-NpmMirror {
+    if ([string]::IsNullOrWhiteSpace($script:OriginalNpmRegistry)) { return }
+    Write-Step "恢复 npm 默认源 (Restoring npm registry)"
+    if ($DryRun) { Write-DryRun "npm config set registry $($script:OriginalNpmRegistry)"; return }
+    & npm config set registry $script:OriginalNpmRegistry 2>$null
+}
+
+$script:OriginalNpmRegistry = ""
+
 function Install-OpenClawIfNeeded([hashtable]$Config) {
     if ($SkipOpenClawInstall) { Write-WarnLine "Skipped official installer."; return }
     Write-Section "Install Node.js and OpenClaw"
@@ -1064,6 +1099,7 @@ try {
             Save-JsonFile -Path $GeneratedInstallerConfigPath -Data $config
             Write-Step "Generated config saved: $GeneratedInstallerConfigPath"
         }
+        Apply-NpmMirror -Config $config
         Install-OpenClawIfNeeded -Config $config
         $openclawCommand = Get-OpenClawCommandPath
         if (-not $openclawCommand) { throw "openclaw.cmd not found. Reopen PowerShell and try again." }
@@ -1074,6 +1110,7 @@ try {
         Write-InstallSummary -Config $config
         Run-PostInstallChannelLogins -OpenClawCommand $openclawCommand -Config $config
         Start-OpenClawGateway -OpenClawCommand $openclawCommand -Config $config
+        Restore-NpmMirror
         Write-Section "Done"
         Write-Host "OpenClaw install flow completed." -ForegroundColor Green
         Write-Host "Check the generated summary and PDF manual before handing the package to others."
